@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFi Privacy Scanner — Threat Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06080e;--bg2:#0c0f18;--card:rgba(14,17,27,.85);--card-hover:rgba(22,26,40,.95);--text:#e2e8f0;--text2:#64748b;--text3:#475569;
+--border:#1a1f30;--accent:#6366f1;--accent2:#818cf8;--crit:#ef4444;--high:#f97316;--med:#eab308;--safe:#22c55e}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* Boot sequence overlay */
+#boot{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;justify-content:center;padding:10% 15%;
+  font-family:'JetBrains Mono',monospace;font-size:13px;color:#22c55e;overflow:hidden;transition:opacity .5s}
+#boot.done{opacity:0;pointer-events:none}
+#bootLines{white-space:pre-wrap;line-height:1.6;flex:1}
+.boot-cursor{display:inline-block;width:8px;height:14px;background:#22c55e;animation:blink .6s step-end infinite;vertical-align:middle}
+.boot-progress{position:absolute;bottom:48px;left:15%;right:15%}
+.boot-bar-bg{height:2px;background:rgba(34,197,94,.15);border-radius:1px;overflow:hidden}
+.boot-bar{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:1px;transition:width .15s linear}
+.boot-pct{font-size:10px;color:rgba(34,197,94,.5);margin-top:6px;text-align:right}
+@keyframes blink{50%{opacity:0}}
+
+/* Particle canvas */
+#particles{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* Ambient glow */
+.ambient-glow{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:800px;border-radius:50%;
+  pointer-events:none;z-index:0;filter:blur(120px);opacity:.12;transition:background 2s}
+
+/* Scanline */
+.scanline{position:fixed;top:0;left:0;right:0;height:3px;z-index:200;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,var(--accent) 30%,#818cf8 50%,var(--accent) 70%,transparent 100%);
+  opacity:0;animation:scanDown 2s ease-out .1s forwards}
+@keyframes scanDown{0%{top:-3px;opacity:.8}100%{top:100vh;opacity:0}}
+
+/* Toast notifications */
+#toasts{position:fixed;top:72px;right:20px;z-index:150;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:12px 16px;border-radius:10px;font-size:12px;font-weight:500;backdrop-filter:blur(12px);
+  border:1px solid var(--border);transform:translateX(120%);animation:toastIn .4s ease forwards;
+  pointer-events:auto;cursor:pointer;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast.out{animation:toastOut .3s ease forwards}
+@keyframes toastIn{to{transform:translateX(0)}}
+@keyframes toastOut{to{transform:translateX(120%);opacity:0}}
+.toast-crit{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#fca5a5}
+.toast-high{background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.2);color:#fdba74}
+.toast-safe{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.2);color:#86efac}
+.toast-info{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.2);color:#a5b4fc}
+
+/* Sticky nav */
+.topnav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  background:rgba(6,8,14,.75);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;
+  opacity:0;transition:opacity .3s}
+.topnav.visible{opacity:1}
+.topnav-links{display:flex;gap:16px}
+.topnav-links a{color:var(--text2);text-decoration:none;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  transition:color .2s;position:relative}
+.topnav-links a:hover{color:var(--accent2)}
+.topnav-links a.active{color:var(--accent2)}
+.topnav-links a.active::after{content:'';position:absolute;bottom:-11px;left:0;right:0;height:2px;background:var(--accent2);border-radius:1px}
+.topnav-right{display:flex;align-items:center;gap:10px}
+.time-ago{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text2);
+  font-size:10px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;letter-spacing:.3px}
+.btn:hover{background:rgba(99,102,241,.1);color:var(--accent2);border-color:rgba(99,102,241,.3)}
+
+.wrap{max-width:1020px;margin:0 auto;padding:32px 20px 60px;position:relative;z-index:1}
+
+/* Hero */
+.hero{text-align:center;padding:48px 0 36px;position:relative}
+.hero-badge{display:inline-block;padding:4px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;margin-bottom:16px;border:1px solid}
+.hero h1{font-size:38px;font-weight:800;letter-spacing:-1.5px;
+  background:linear-gradient(135deg,#fff 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.hero .subtitle{color:var(--text2);font-size:13px;font-weight:400;min-height:1.6em}
+
+/* Radar */
+.radar-wrap{display:flex;justify-content:center;margin:28px 0 0}
+.radar{width:200px;height:200px;position:relative}
+.radar-ring{position:absolute;border-radius:50%;border:1px solid rgba(99,102,241,.08);top:50%;left:50%;transform:translate(-50%,-50%)}
+.radar-ring:nth-child(1){width:200px;height:200px}.radar-ring:nth-child(2){width:140px;height:140px}
+.radar-ring:nth-child(3){width:80px;height:80px}.radar-ring:nth-child(4){width:30px;height:30px}
+.radar-cross{position:absolute;top:50%;left:50%}
+.radar-cross::before,.radar-cross::after{content:'';position:absolute;background:rgba(99,102,241,.06)}
+.radar-cross::before{width:200px;height:1px;left:-100px;top:0}
+.radar-cross::after{width:1px;height:200px;top:-100px;left:0}
+.radar-sweep{position:absolute;top:50%;left:50%;width:100px;height:100px;transform-origin:0 0;animation:sweep 3s linear infinite}
+.radar-sweep::after{content:'';position:absolute;top:0;left:0;width:100%;height:100%;
+  background:conic-gradient(from -90deg at 0% 0%,rgba(99,102,241,.18) 0deg,transparent 35deg);border-radius:0 100px 0 0}
+.radar-sweep::before{content:'';position:absolute;top:-1px;left:0;width:100%;height:2px;
+  background:linear-gradient(90deg,rgba(99,102,241,.7),transparent)}
+@keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.radar-center{position:absolute;top:50%;left:50%;width:8px;height:8px;background:var(--accent);
+  border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 16px var(--accent),0 0 40px rgba(99,102,241,.25)}
+.radar-blip{position:absolute;width:6px;height:6px;border-radius:50%;animation:blip 3s ease-in-out infinite;transition:all .3s}
+.radar-blip:hover{transform:scale(2.5)!important;z-index:10}
+@keyframes blip{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:1;transform:scale(1.4)}}
+
+/* Scroll reveal */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* Cards */
+.card{background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px;transition:all .3s}
+.card:hover{border-color:rgba(99,102,241,.15)}
+.card h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text2);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:700px){.stats{grid-template-columns:1fr}}
+.stat-card{text-align:center;padding:28px 16px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:60%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.3}
+.stat-value{font-size:52px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text2);margin-top:10px}
+
+/* SVG Gauge */
+.gauge-svg{display:block;margin:0 auto}
+.gauge-track{fill:none;stroke:var(--border);stroke-width:10;stroke-linecap:round}
+.gauge-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1)}
+.gauge-glow{fill:none;stroke-width:18;stroke-linecap:round;opacity:.2;filter:blur(6px)}
+
+/* Breakdown */
+.bd-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.bd-pill{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);transition:all .2s}
+.bd-pill:hover{background:rgba(255,255,255,.06)}
+.bd-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Topology canvas */
+#topoCanvas{display:block;margin:0 auto;border-radius:12px}
+
+/* Network cards */
+.net-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 22px;
+  margin-bottom:12px;transition:all .25s ease;position:relative;overflow:hidden}
+.net-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.net-card:hover{background:var(--card-hover);transform:translateX(4px);box-shadow:0 4px 24px rgba(0,0,0,.3)}
+.net-card.threat-crit{border-color:rgba(239,68,68,.12)}.net-card.threat-crit::before{background:var(--crit)}
+.net-card.threat-crit:hover{box-shadow:0 4px 32px rgba(239,68,68,.08)}
+.net-card.threat-high{border-color:rgba(249,115,22,.1)}.net-card.threat-high::before{background:var(--high)}
+.net-card.threat-med{border-color:rgba(234,179,8,.08)}.net-card.threat-med::before{background:var(--med)}
+.net-card.threat-low::before{background:var(--safe)}
+.net-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.net-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.net-ssid{font-weight:600;font-size:15px}
+.risk-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.risk-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:9px;font-weight:700;color:white;letter-spacing:.8px}
+.vendor-tag{font-size:10px;color:var(--accent2);background:rgba(99,102,241,.08);padding:2px 8px;border-radius:8px;font-weight:500}
+.net-meta{display:flex;gap:14px;font-size:11px;color:var(--text3);flex-wrap:wrap}
+.net-meta code{font-family:'JetBrains Mono',monospace;background:rgba(99,102,241,.05);padding:1px 5px;border-radius:3px;font-size:10px}
+.sig-bars{display:flex;align-items:flex-end;gap:2px}
+.sig-bar{width:4px;background:rgba(255,255,255,.06);border-radius:1px}
+.sig-bar.active{background:var(--text2)}
+.sig-pct{font-size:10px;color:var(--text3);margin-left:4px;font-family:'JetBrains Mono',monospace}
+.sig-fill{height:100%;border-radius:8px;transition:width 1.5s cubic-bezier(.4,0,.2,1)}
+.sig-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:4px 0}
+.sig-label{width:140px;font-size:11px;text-align:right;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.sig-track{flex:1;height:18px;background:rgba(255,255,255,.025);border-radius:9px;overflow:hidden}
+.sig-value{width:36px;font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;text-align:right;font-weight:500}
+
+/* Threat detail card (always visible) */
+.threat-detail{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:10px}
+.threat-vendor{font-weight:600;font-size:13px;margin-bottom:2px}
+.threat-type{font-size:12px;color:var(--text2);margin-bottom:4px}
+.threat-match{font-size:11px;color:var(--text3);margin-bottom:8px}
+.cap-list{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.cap-tag{font-size:10px;padding:4px 10px;border-radius:8px;font-weight:500}
+.threat-crit .cap-tag{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#fca5a5}
+.threat-high .cap-tag{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);color:#fdba74}
+.threat-med .cap-tag{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.15);color:#fde047}
+.threat-low .cap-tag{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);color:#86efac}
+.threat-mit{font-size:12px;color:var(--text2);padding-top:8px;border-top:1px solid rgba(239,68,68,.06)}
+.safe-msg{font-size:12px;color:var(--text3);padding-top:4px}
+
+/* Pulse on threats */
+.net-card.threat-crit .risk-dot,.net-card.threat-high .risk-dot{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px currentColor}50%{box-shadow:0 0 14px currentColor,0 0 28px currentColor}}
+
+/* Diff */
+.diff-item{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.diff-item:last-child{border-bottom:none}
+.diff-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-weight:700;font-size:14px;flex-shrink:0}
+.diff-new .diff-icon{background:rgba(34,197,94,.08);color:var(--safe)}.diff-gone .diff-icon{background:rgba(239,68,68,.08);color:var(--crit)}
+
+/* Recs */
+.rec-list{list-style:none}.rec-list li{padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;transition:color .2s}
+.rec-list li:last-child{border-bottom:none}
+.rec-list li:hover{color:var(--text)}
+
+/* Shield / Alert overlay */
+#fxCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:300;pointer-events:none}
+
+/* Shield stamp */
+.shield-stamp{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);z-index:301;pointer-events:none;
+  text-align:center;opacity:0;transition:all .6s cubic-bezier(.2,1,.3,1)}
+.shield-stamp.active{transform:translate(-50%,-50%) scale(1);opacity:1}
+.shield-stamp.fade{opacity:0;transform:translate(-50%,-50%) scale(1.1)}
+.shield-icon{font-size:64px;filter:drop-shadow(0 0 40px rgba(34,197,94,.5));margin-bottom:8px}
+.shield-text{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;letter-spacing:6px;text-transform:uppercase;
+  color:var(--safe);text-shadow:0 0 20px rgba(34,197,94,.5)}
+
+/* Threat alert flash */
+.threat-vignette{position:fixed;inset:0;z-index:250;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at center,transparent 40%,rgba(239,68,68,.15) 100%);transition:opacity .3s}
+.threat-vignette.flash{animation:vignetteFlash 1.5s ease-out forwards}
+@keyframes vignetteFlash{0%{opacity:.8}30%{opacity:.4}100%{opacity:0}}
+
+/* Glitch effect */
+.glitch{position:relative;animation:glitchAnim 3s linear infinite}
+@keyframes glitchAnim{0%,93%,100%{transform:none;opacity:1}94%{transform:translate(-2px,1px) skewX(-1deg);opacity:.8}
+  95%{transform:translate(2px,-1px);opacity:.9}96%{transform:translate(-1px,2px) skewX(1deg);opacity:.85}
+  97%{transform:none;opacity:1}}
+
+/* Hex grid pulse */
+.hex-pulse{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:299;pointer-events:none;opacity:0}
+.hex-ring{position:absolute;border:1px solid var(--safe);border-radius:50%;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(0);opacity:0}
+.hex-ring.go{animation:ringExpand 1.2s ease-out forwards}
+@keyframes ringExpand{0%{transform:translate(-50%,-50%) scale(0);opacity:.8}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+
+/* Footer */
+.footer{text-align:center;color:var(--text3);font-size:11px;margin-top:48px;padding:24px 0;border-top:1px solid var(--border)}
+
+.kbd-hint{position:fixed;bottom:14px;right:16px;font-size:9px;color:var(--text3);z-index:50;opacity:.4}
+kbd{background:var(--bg2);border:1px solid var(--border);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:8px}
+
+/* Scroll progress */
+.scroll-progress{position:fixed;top:0;left:0;height:2px;background:var(--accent);z-index:200;transition:width .1s linear;width:0}
+
+/* Donut chart */
+.donut-wrap{display:flex;align-items:center;justify-content:center;gap:24px;margin-top:8px}
+.donut-legend{display:flex;flex-direction:column;gap:6px}
+.donut-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+.donut-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Heatmap */
+.heatmap{overflow-x:auto;margin-top:8px}
+.heatmap table{border-collapse:separate;border-spacing:3px;width:100%}
+.heatmap th{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;text-align:left;white-space:nowrap}
+.heatmap th.rotate{writing-mode:vertical-lr;transform:rotate(180deg);text-align:right;height:80px;padding:4px 2px}
+.heatmap td{padding:4px;text-align:center;border-radius:4px;min-width:28px;height:28px;font-size:9px}
+.hm-on{background:rgba(239,68,68,.15);color:#fca5a5;font-weight:700}.hm-off{background:rgba(255,255,255,.015);color:var(--border)}
+.hm-ssid{font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;text-align:right;padding-right:8px}
+
+/* Encryption chart */
+.enc-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.enc-label{width:100px;font-size:11px;color:var(--text2);text-align:right;font-weight:500}
+.enc-bar-track{flex:1;height:14px;background:rgba(255,255,255,.02);border-radius:7px;overflow:hidden}
+.enc-bar-fill{height:100%;border-radius:7px;transition:width 1s ease}
+.enc-count{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;width:20px}
+.enc-grade{font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;letter-spacing:.5px}
+
+/* FAB */
+.fab{position:fixed;bottom:24px;right:24px;z-index:100}
+.fab-btn{width:48px;height:48px;border-radius:50%;background:var(--accent);border:none;color:white;font-size:20px;
+  cursor:pointer;box-shadow:0 4px 24px rgba(99,102,241,.3);transition:all .2s;display:flex;align-items:center;justify-content:center}
+.fab-btn:hover{transform:scale(1.1);box-shadow:0 6px 32px rgba(99,102,241,.4)}
+.fab-menu{position:absolute;bottom:56px;right:0;display:flex;flex-direction:column;gap:8px;opacity:0;pointer-events:none;
+  transform:translateY(8px);transition:all .2s}
+.fab.open .fab-menu{opacity:1;pointer-events:auto;transform:translateY(0)}
+.fab-item{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.fab-item-btn{width:36px;height:36px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--text);
+  font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.fab-item-btn:hover{background:var(--card-hover);border-color:var(--accent)}
+.fab-item-label{font-size:11px;color:var(--text2);background:var(--card);border:1px solid var(--border);padding:4px 10px;border-radius:6px}
+.fab.hidden .fab-btn{opacity:.3;transform:scale(.8)}
+
+/* Slide-out detail panel */
+.panel-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .3s}
+.panel-overlay.open{opacity:1;pointer-events:auto}
+.panel{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:90vw;z-index:401;background:var(--bg2);border-left:1px solid var(--border);
+  transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:28px 24px}
+.panel.open{transform:translateX(0)}
+.panel-close{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--border);border-radius:8px;
+  color:var(--text2);width:32px;height:32px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.panel-close:hover{background:var(--card);color:var(--text)}
+.panel h3{font-size:18px;font-weight:700;margin-bottom:4px}
+.panel-subtitle{font-size:12px;color:var(--text3);margin-bottom:20px}
+.panel-section{margin-bottom:20px}
+.panel-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text3);margin-bottom:10px}
+.panel-stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.panel-stat:last-child{border-bottom:none}
+.panel-stat-label{color:var(--text2)}.panel-stat-value{font-weight:600;font-family:'JetBrains Mono',monospace;font-size:12px}
+.panel-meter{height:6px;background:rgba(255,255,255,.03);border-radius:3px;margin-top:8px;overflow:hidden}
+.panel-meter-fill{height:100%;border-radius:3px;transition:width .8s ease}
+
+/* Risk breakdown */
+.rb-item{padding:12px 0;border-bottom:1px solid var(--border)}
+.rb-item:last-child{border-bottom:none}
+.rb-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rb-label{color:var(--text);font-size:13px;font-weight:500}
+.rb-vendor{font-size:11px;color:var(--text3);font-weight:400}
+.rb-value{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.rb-bar{height:6px;background:rgba(255,255,255,.03);border-radius:3px;overflow:hidden}
+.rb-fill{height:100%;border-radius:3px;transition:width 1s ease}
+
+/* Card press + focus */
+.net-card:active{transform:scale(.99) translateX(2px);transition:transform .1s}
+.net-card.focused{border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent)}
+
+/* Search/filter bar */
+.net-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.net-search{flex:1;min-width:180px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.03);
+  color:var(--text);font-size:12px;font-family:inherit;outline:none;transition:border-color .2s}
+.net-search:focus{border-color:var(--accent)}
+.net-search::placeholder{color:var(--text3)}
+.sort-btn{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.02);
+  color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;letter-spacing:.5px;text-transform:uppercase}
+.sort-btn:hover,.sort-btn.active{background:rgba(99,102,241,.08);color:var(--accent2);border-color:rgba(99,102,241,.25)}
+
+/* Summary card */
+.summary-text{font-size:14px;line-height:1.8;color:var(--text2)}
+.summary-text strong{color:var(--text);font-weight:600}
+.summary-highlight{display:inline-block;padding:1px 8px;border-radius:6px;font-weight:600;font-size:13px}
+
+/* Smart recommendations */
+.rec-card{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px;
+  display:flex;gap:12px;align-items:flex-start;transition:all .2s}
+.rec-card:hover{background:rgba(255,255,255,.035);border-color:rgba(99,102,241,.15)}
+.rec-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.rec-body{flex:1}
+.rec-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.rec-desc{font-size:11px;color:var(--text3);line-height:1.5}
+.rec-sev{font-size:9px;font-weight:700;letter-spacing:.8px;padding:2px 8px;border-radius:6px;text-transform:uppercase}
+
+/* Mobile */
+@media(max-width:600px){
+  .hero h1{font-size:26px}.stat-value{font-size:36px}.stats{grid-template-columns:1fr}
+  .topnav-links{gap:8px}.topnav-links a{font-size:9px;letter-spacing:.5px}
+  .net-toolbar{flex-direction:column}.net-search{min-width:100%}
+  .sig-row{flex-wrap:wrap}.sig-label{width:100%;text-align:left}
+  .heatmap th.rotate{height:50px;font-size:7px}
+  .panel{width:100%;max-width:100%}
+  .radar{width:140px;height:140px}.radar-ring:nth-child(1){width:140px;height:140px}
+  .radar-ring:nth-child(2){width:100px;height:100px}.radar-ring:nth-child(3){width:60px;height:60px}
+}
+
+@media print{#boot,.topnav,#particles,.ambient-glow,.scanline,.kbd-hint,#fxCanvas,.shield-stamp,.hex-pulse,.threat-vignette,#toasts{display:none!important}
+  body{background:#fff;color:#000}.card{background:#f8f8f8;border-color:#ddd;backdrop-filter:none}
+  .stat-value,.net-ssid{color:#000!important;-webkit-text-fill-color:#000!important}
+  .hero h1{-webkit-text-fill-color:#000!important;background:none!important}}
+</style>
+</head>
+<body>
+
+<!-- Boot sequence -->
+<div id="boot"><div id="bootLines"></div><div class="boot-progress"><div class="boot-bar-bg"><div class="boot-bar" id="bootBar"></div></div><div class="boot-pct" id="bootPct">0%</div></div></div>
+
+<!-- Effects layers -->
+<canvas id="particles"></canvas>
+<canvas id="fxCanvas"></canvas>
+<div class="ambient-glow" id="ambientGlow"></div>
+<div class="threat-vignette" id="threatVignette"></div>
+<div class="hex-pulse" id="hexPulse">
+  <div class="hex-ring" style="width:100px;height:100px"></div>
+  <div class="hex-ring" style="width:250px;height:250px"></div>
+  <div class="hex-ring" style="width:450px;height:450px"></div>
+  <div class="hex-ring" style="width:700px;height:700px"></div>
+</div>
+<div class="shield-stamp" id="shieldStamp"><div class="shield-icon">&#x1F6E1;</div><div class="shield-text">Perimeter Secure</div></div>
+<div class="scroll-progress" id="scrollProg"></div>
+<div class="scanline" id="scanline"></div>
+<div id="toasts"></div>
+
+<!-- Nav -->
+<nav class="topnav" id="topnav">
+  <div class="topnav-links">
+    <a href="#score" data-section="score">Score</a>
+    <a href="#signals" data-section="signals">Signals</a>
+    <a href="#networks" data-section="networks">Networks</a>
+    <a href="#topo" data-section="topo">Topology</a>
+    <a href="#heatmap" data-section="heatmap">Matrix</a>
+    <a href="#encryption" data-section="encryption">Encryption</a>
+    <a href="#recs" data-section="recs">Actions</a>
+  </div>
+  <div class="topnav-right">
+    <span class="time-ago" id="timeAgo"></span>
+    <button class="btn" onclick="navigator.clipboard.writeText(document.body.innerText).then(()=>showToast('Report copied to clipboard','info'))">Copy</button>
+    <button class="btn" onclick="window.print()">&#x1f5b6; PDF</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero" id="score"></div>
+  <div class="stats reveal" id="statsGrid"></div>
+  <div class="reveal" id="summary"></div>
+  <div id="diffSection"></div>
+  <div class="reveal" id="signals"></div>
+  <div class="reveal" id="topo"></div>
+  <div class="reveal" id="networks"></div>
+  <div class="reveal" id="heatmap"></div>
+  <div class="reveal" id="encryption"></div>
+  <div class="reveal" id="recs"></div>
+  <div class="footer">WiFi Privacy Scanner v4 &middot; Privacy Tech AI Agency<br>CSI-capable router detection &middot; VPN + MAC randomization recommended</div>
+</div>
+
+<div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+<div class="panel" id="detailPanel"><button class="panel-close" onclick="closePanel()">&times;</button><div id="panelContent"></div></div>
+
+<div class="fab" id="fab">
+  <div class="fab-menu">
+    <div class="fab-item"><span class="fab-item-label">Export PDF</span><button class="fab-item-btn" onclick="window.print()">&#x1f5b6;</button></div>
+    <div class="fab-item"><span class="fab-item-label">Copy Report</span><button class="fab-item-btn" onclick="navigator.clipboard.writeText(document.body.innerText).then(()=>showToast('Copied!','info',2000))">&#x1f4cb;</button></div>
+    <div class="fab-item"><span class="fab-item-label">Re-scan FX</span><button class="fab-item-btn" onclick="replayFx()">&#x1f50d;</button></div>
+    <div class="fab-item"><span class="fab-item-label">Toggle Sound</span><button class="fab-item-btn" onclick="soundEnabled=!soundEnabled;showToast(soundEnabled?'Sound on':'Muted','info',1500)">&#x1f50a;</button></div>
+  </div>
+  <button class="fab-btn" onclick="document.getElementById('fab').classList.toggle('open')">&#x26A1;</button>
+</div>
+<div class="kbd-hint"><kbd>S</kbd> scan &middot; <kbd>M</kbd> mute &middot; <kbd>J</kbd>/<kbd>K</kbd> navigate &middot; <kbd>Enter</kbd> detail &middot; <kbd>Esc</kbd> close</div>
+
+<script>
+const DATA = {"scan_date": "2026-03-15T14:51:04.451324", "scanner_version": "2.0.0", "platform": "Windows", "networks_scanned": 6, "threats_found": 5, "threat_score": 90, "threat_breakdown": {"critical": 1, "high": 2, "medium": 2, "low": 1}, "networks": [{"network": {"ssid": "xfinitywifi", "bssid": "B0:8B:D0:12:34:56", "signal_strength": 85, "encryption": "WPA2"}, "threats": [{"vendor": "Xfinity", "models": ["XB6", "XB7", "XB8", "XB8-T", "XFi Gateway"], "detection_type": "Motion Sensing", "capabilities": ["Presence detection", "Motion tracking", "Room-level occupancy", "Device fingerprinting"], "mitigation": "Disable motion sensing in Xfinity app → More → WiFi → Advanced Security. Or replace with your own router in bridge mode.", "match_reason": ["MAC OUI match (B0:8B:D0)", "SSID contains 'xfinity'", "SSID contains 'xfi'"]}], "risk_level": "HIGH", "risk_score": 70, "vendor_match": "Xfinity"}, {"network": {"ssid": "HOME-WiFi", "bssid": "00:24:A5:78:90:AB", "signal_strength": 92, "encryption": "WPA2"}, "threats": [{"vendor": "Xfinity", "models": ["XB6", "XB7", "XB8", "XB8-T", "XFi Gateway"], "detection_type": "Motion Sensing", "capabilities": ["Presence detection", "Motion tracking", "Room-level occupancy", "Device fingerprinting"], "mitigation": "Disable motion sensing in Xfinity app → More → WiFi → Advanced Security. Or replace with your own router in bridge mode.", "match_reason": ["MAC OUI match (00:24:A5)"]}], "risk_level": "HIGH", "risk_score": 70, "vendor_match": "Xfinity"}, {"network": {"ssid": "OriginWireless_Mesh", "bssid": "00:1B:63:CD:EF:12", "signal_strength": 70, "encryption": "WPA3"}, "threats": [{"vendor": "Origin AI", "models": ["Origin Wireless", "Origin WiFi Sensing Platform"], "detection_type": "Full CSI", "capabilities": ["Full CSI extraction", "Vital signs monitoring", "Breathing/heart rate detection", "Fall detection", "Gait analysis", "Sleep quality tracking"], "mitigation": "Avoid networks with Origin AI deployment; use VPN and limit WiFi exposure. Origin AI technology may be embedded in ISP routers.", "match_reason": ["MAC OUI match (00:1B:63)", "SSID contains 'origin'", "SSID contains 'originwireless'"]}], "risk_level": "CRITICAL", "risk_score": 90, "vendor_match": "Origin AI"}, {"network": {"ssid": "NormalRouter", "bssid": "AA:BB:CC:DD:EE:FF", "signal_strength": 65, "encryption": "WPA2"}, "threats": [], "risk_level": "LOW", "risk_score": 0, "vendor_match": null}, {"network": {"ssid": "NETGEAR-5G", "bssid": "34:98:B5:11:22:33", "signal_strength": 40, "encryption": "WPA2"}, "threats": [{"vendor": "Netgear (Armor)", "models": ["Orbi series", "Nighthawk series"], "detection_type": "Device Fingerprinting + Analytics", "capabilities": ["Device fingerprinting (Armor)", "Traffic analysis", "Vulnerability scanning"], "mitigation": "Disable Netgear Armor in Orbi/Nighthawk app. Analytics are opt-in via subscription.", "match_reason": ["MAC OUI match (34:98:B5)", "SSID contains 'netgear'"]}], "risk_level": "MEDIUM", "risk_score": 50, "vendor_match": "Netgear (Armor)"}, {"network": {"ssid": "GoogleNest_1234", "bssid": "F4:F5:D8:AA:BB:CC", "signal_strength": 55, "encryption": "WPA3"}, "threats": [{"vendor": "Google Nest", "models": ["Nest WiFi Pro", "Nest WiFi", "Nest Hub Max"], "detection_type": "Presence Sensing (Soli/Thread)", "capabilities": ["Presence detection", "Sleep sensing (Nest Hub)", "Gesture recognition (Soli)", "Room-level occupancy"], "mitigation": "Disable Soli features in Google Home app → Device Settings → Recognition & Sensing.", "match_reason": ["MAC OUI match (F4:F5:D8)", "SSID contains 'nest'", "SSID contains 'googlenest'"]}], "risk_level": "MEDIUM", "risk_score": 50, "vendor_match": "Google Nest"}], "recommendations": ["🚨 CRITICAL: 1 network(s) with severe surveillance capabilities. Avoid these networks. Use VPN and disable WiFi when not needed.", "⚠️  HIGH RISK: 2 network(s) with motion sensing. Disable motion/presence features or replace router.", "ℹ️  MEDIUM RISK: 2 network(s) with potential surveillance. Review router docs and disable unnecessary sensing.", "💡 Enable MAC address randomization on your devices", "💡 Use VPN to encrypt traffic and limit exposure", "💡 Regularly update router firmware to patch vulnerabilities", "💡 Disable WPS, UPnP, and remote management features"]};
+const CM={CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#eab308',LOW:'#22c55e'};
+let soundEnabled=true;
+
+// === Web Audio synth ===
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let actx;
+function initAudio(){if(!actx)actx=new AudioCtx()}
+function beep(freq,dur,vol){if(!soundEnabled||!actx)return;try{const o=actx.createOscillator(),g=actx.createGain();
+  o.connect(g);g.connect(actx.destination);o.frequency.value=freq;o.type='sine';g.gain.value=vol||.04;
+  o.start();g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+dur);o.stop(actx.currentTime+dur)}catch(e){}}
+function scanBeep(){beep(880,.08);setTimeout(()=>beep(1100,.06),100)}
+function alertBeep(){beep(440,.15,.06);setTimeout(()=>beep(330,.2,.05),160)}
+function clickBeep(){beep(1200,.03,.02)}
+function safeChime(){beep(523,.1,.04);setTimeout(()=>beep(659,.1,.04),120);setTimeout(()=>beep(784,.15,.04),240)}
+
+// === Boot sequence ===
+(function(){
+  const lines=[
+    '[boot] WiFi Privacy Scanner v4.0',
+    '[init] Loading threat database...',
+    '[db] '+DATA.networks.length+' CSI-capable vendor signatures loaded',
+    '[scan] Platform: '+DATA.platform,
+    '[scan] Networks detected: '+DATA.networks_scanned,
+    '[scan] Analyzing threat signatures...',
+  ];
+  DATA.networks.forEach(n=>{
+    if(n.risk_level!=='LOW')lines.push('[ALERT] '+n.network.ssid+' — '+n.risk_level+' ('+n.vendor_match+')');
+    else lines.push('[  ok ] '+n.network.ssid+' — clean');
+  });
+  lines.push('[done] Threat score: '+DATA.threat_score+'/100');
+  lines.push('[done] Report ready.\n');
+
+  const el=document.getElementById('bootLines'),bar=document.getElementById('bootBar'),pct=document.getElementById('bootPct');
+  let i=0,charI=0,cur='';
+  function updateProgress(){const p=Math.round((i/lines.length)*100);bar.style.width=p+'%';pct.textContent=p+'%'}
+  function type(){
+    if(i>=lines.length){bar.style.width='100%';pct.textContent='100%';setTimeout(()=>{document.getElementById('boot').classList.add('done');
+      document.getElementById('topnav').classList.add('visible');initAudio();scanBeep();
+      if(DATA.threat_score===0)setTimeout(()=>{safeChime();shieldActivation()},500);
+      else if(DATA.threats_found>0)setTimeout(()=>{alertBeep();threatAlert()},400);
+      setTimeout(fireToasts,1200)},400);return}
+    if(charI===0){cur=lines[i];if(cur.includes('ALERT'))beep(440,.05,.03)}
+    charI++;
+    const show=lines.slice(0,i).join('\n')+'\n'+cur.slice(0,charI)+'<span class="boot-cursor"></span>';
+    el.innerHTML=show;
+    if(charI>=cur.length){i++;charI=0;updateProgress();setTimeout(type,cur.includes('ALERT')?200:80)}
+    else setTimeout(type,cur.includes('ALERT')?25:12)
+  }
+  setTimeout(type,300)
+})();
+
+// === Particles ===
+(function(){
+  const c=document.getElementById('particles'),x=c.getContext('2d');let w,h,pts=[];
+  function resize(){w=c.width=innerWidth;h=c.height=innerHeight;pts=[];
+    for(let i=0;i<50;i++)pts.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4})}
+  function draw(){x.clearRect(0,0,w,h);
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;
+      x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle='rgba(99,102,241,.12)';x.fill()});
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);
+      if(d<130){x.beginPath();x.moveTo(pts[i].x,pts[i].y);x.lineTo(pts[j].x,pts[j].y);
+        x.strokeStyle=`rgba(99,102,241,${.04*(1-d/130)})`;x.stroke()}}
+    requestAnimationFrame(draw)}
+  resize();draw();addEventListener('resize',resize)
+})();
+
+// === Ambient glow ===
+(function(){const g=document.getElementById('ambientGlow');
+  const col=DATA.threat_score>=80?'#ef4444':DATA.threat_score>=60?'#f97316':DATA.threat_score>=40?'#eab308':'#22c55e';
+  g.style.background=col;
+  // Breathing pulse
+  let bf=0;(function breathe(){bf+=.015;g.style.opacity=.08+Math.sin(bf)*.06;requestAnimationFrame(breathe)})()})();
+
+// === Time ago ===
+(function(){const d=new Date(DATA.scan_date),el=document.getElementById('timeAgo');
+  function up(){const s=Math.floor((Date.now()-d)/1000);
+    if(s<60)el.textContent=s+'s ago';else if(s<3600)el.textContent=Math.floor(s/60)+'m ago';
+    else if(s<86400)el.textContent=Math.floor(s/3600)+'h ago';else el.textContent=Math.floor(s/86400)+'d ago'}
+  up();setInterval(up,1000)})();
+
+// === Toast system ===
+function showToast(msg,type,dur){
+  const t=document.createElement('div');t.className='toast toast-'+(type||'info');t.textContent=msg;
+  document.getElementById('toasts').appendChild(t);
+  t.onclick=()=>{t.classList.add('out');setTimeout(()=>t.remove(),300)};
+  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),300)},dur||4000)}
+function fireToasts(){
+  const bd=DATA.threat_breakdown;
+  if(DATA.threat_score===0)showToast('All clear! No surveillance threats detected.','safe',5000);
+  if(bd.critical>0)showToast(bd.critical+' CRITICAL threat'+(bd.critical>1?'s':'')+' detected!','crit',6000);
+  else if(bd.high>0)showToast(bd.high+' high-risk network'+(bd.high>1?'s':'')+' found.','high',5000);
+  if(DATA.diff){const d=DATA.diff;
+    if(d.new_networks&&d.new_networks.length)showToast(d.new_networks.length+' new network'+(d.new_networks.length>1?'s':'')+' since last scan','info',4000)}}
+
+// === Count up ===
+function countUp(el,target,dur){if(!el)return;const s=performance.now();
+  (function tick(now){const p=Math.min((now-s)/dur,1);el.textContent=Math.round(p*target);if(p<1)requestAnimationFrame(tick)})(s)}
+
+// === Shield activation (score 0) ===
+function shieldActivation(){
+  // Expanding ring pulse
+  const rings=document.querySelectorAll('.hex-ring');
+  document.getElementById('hexPulse').style.opacity='1';
+  rings.forEach((r,i)=>setTimeout(()=>{r.classList.add('go');beep(400+i*120,.2,.03)},i*200));
+  // Shield canvas effect — expanding hexagonal grid
+  const c=document.getElementById('fxCanvas'),x=c.getContext('2d');
+  c.width=innerWidth;c.height=innerHeight;
+  const cx=innerWidth/2,cy=innerHeight/2;let frame=0,maxR=0;
+  function drawShield(){x.clearRect(0,0,c.width,c.height);frame++;maxR=Math.min(frame*8,Math.max(innerWidth,innerHeight));
+    // Draw expanding hex grid
+    const size=30;
+    for(let row=-20;row<20;row++){for(let col=-20;col<20;col++){
+      const hx=cx+col*size*1.5;const hy=cy+row*size*Math.sqrt(3)+(col%2?size*Math.sqrt(3)/2:0);
+      const dist=Math.hypot(hx-cx,hy-cy);
+      if(dist>maxR||dist<maxR-80)continue;
+      const alpha=Math.max(0,(1-Math.abs(dist-maxR+40)/40)*.25);
+      x.beginPath();for(let a=0;a<6;a++){const angle=Math.PI/3*a-Math.PI/6;
+        const px=hx+size*.45*Math.cos(angle),py=hy+size*.45*Math.sin(angle);
+        a===0?x.moveTo(px,py):x.lineTo(px,py)}
+      x.closePath();x.strokeStyle=`rgba(34,197,94,${alpha})`;x.lineWidth=1;x.stroke()}}
+    if(frame<120)requestAnimationFrame(drawShield);
+    else{x.clearRect(0,0,c.width,c.height)}}
+  drawShield();
+  // Show shield stamp
+  setTimeout(()=>{const stamp=document.getElementById('shieldStamp');stamp.classList.add('active');
+    setTimeout(()=>stamp.classList.add('fade'),2000);setTimeout(()=>{stamp.classList.remove('active','fade')},2600)},600);
+}
+
+// === Threat alert (threats found) ===
+function threatAlert(){
+  // Red vignette flash
+  document.getElementById('threatVignette').classList.add('flash');
+  setTimeout(()=>document.getElementById('threatVignette').classList.remove('flash'),1600);
+  // Scan lines on fx canvas
+  const c=document.getElementById('fxCanvas'),x=c.getContext('2d');
+  c.width=innerWidth;c.height=innerHeight;
+  let frame=0;
+  function drawAlert(){x.clearRect(0,0,c.width,c.height);frame++;
+    // Horizontal scan lines sweeping down
+    const y1=(frame*4)%c.height;const y2=((frame*4)+c.height/2)%c.height;
+    [y1,y2].forEach(y=>{x.fillStyle=`rgba(239,68,68,${.06*(1-frame/60)})`;x.fillRect(0,y-1,c.width,2)});
+    // Expanding threat ring from center
+    if(frame<50){const r=frame*12;
+      x.beginPath();x.arc(c.width/2,c.height/2,r,0,Math.PI*2);
+      x.strokeStyle=`rgba(239,68,68,${.3*(1-frame/50)})`;x.lineWidth=2;x.stroke()}
+    if(frame<60)requestAnimationFrame(drawAlert);
+    else x.clearRect(0,0,c.width,c.height)}
+  drawAlert();
+  // Glitch the title
+  const h1=document.querySelector('.hero h1');if(h1)h1.classList.add('glitch');
+  setTimeout(()=>{if(h1)h1.classList.remove('glitch')},4000);
+}
+
+// === Typewriter ===
+function typewriter(el,text,speed){let i=0;el.textContent='';
+  (function t(){if(i<=text.length){el.textContent=text.slice(0,i);i++;setTimeout(t,speed)}})()}
+
+// === Scroll reveal ===
+const revealObs=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')})},{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>revealObs.observe(el));
+
+// === Active nav section ===
+const sectionObs=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){
+  document.querySelectorAll('.topnav-links a').forEach(a=>a.classList.toggle('active',a.dataset.section===e.target.id))}})},{threshold:.3});
+['score','signals','networks','topo','heatmap','encryption','recs'].forEach(id=>{const el=document.getElementById(id);if(el)sectionObs.observe(el)});
+
+// === Hero ===
+(function(){const sc=DATA.threat_score,col=sc>=80?CM.CRITICAL:sc>=60?CM.HIGH:sc>=40?CM.MEDIUM:CM.LOW,
+  label=sc>=80?'CRITICAL THREAT':sc>=60?'HIGH RISK':sc>=40?'MODERATE RISK':'ALL CLEAR';
+  const sub=`Scanned ${DATA.scan_date.slice(0,19).replace('T',' ')} \u00b7 ${DATA.platform||'Unknown'} \u00b7 v${DATA.scanner_version||'4.0'} \u00b7 ${DATA.networks_scanned} networks`;
+  document.querySelector('.hero').innerHTML=`<div class="hero-badge" style="color:${col};border-color:${col}40">${label}</div>
+    <h1>WiFi Privacy Scanner</h1><div class="subtitle" id="heroSub"></div>
+    <div class="radar-wrap"><div class="radar">
+      <div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-ring"></div><div class="radar-ring"></div>
+      <div class="radar-cross"></div><div class="radar-sweep"></div><div class="radar-center"></div>
+      ${DATA.networks.slice(0,10).map((n,i)=>{const c2=CM[n.risk_level]||CM.LOW;
+        const a=((i/Math.max(DATA.networks.length,1))*360+45)*Math.PI/180;const r2=25+n.network.signal_strength*.6;
+        return`<div class="radar-blip" style="top:${50+r2*Math.sin(a)*.45}%;left:${50+r2*Math.cos(a)*.45}%;background:${c2};animation-delay:${i*.25}s;box-shadow:0 0 10px ${c2}" title="${esc(n.network.ssid)}"></div>`}).join('')}
+    </div></div>`;
+  setTimeout(()=>typewriter(document.getElementById('heroSub'),sub,20),2500)})();
+
+// === Stats ===
+(function(){const sc=DATA.threat_score,bd=DATA.threat_breakdown,
+  col=sc>=80?CM.CRITICAL:sc>=60?CM.HIGH:sc>=40?CM.MEDIUM:CM.LOW,
+  label=sc>=80?'CRITICAL':sc>=60?'HIGH RISK':sc>=40?'MODERATE':'ALL CLEAR';
+  const arcLen=270*2.51*(sc/100);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="card stat-card">
+      <svg class="gauge-svg" width="200" height="130" viewBox="0 0 200 140">
+        <path class="gauge-track" d="M 30 130 A 80 80 0 1 1 170 130"/>
+        ${sc>0?`<path class="gauge-glow" d="M 30 130 A 80 80 0 1 1 170 130" stroke="${col}" stroke-dasharray="${arcLen} 999"/>
+        <path class="gauge-fill" d="M 30 130 A 80 80 0 1 1 170 130" stroke="${col}" stroke-dasharray="0 999"/>`:''}</svg>
+      <div class="stat-value" id="scoreVal" style="color:${col};margin-top:-4px">0</div>
+      <div class="stat-label">${label}</div></div>
+    <div class="card stat-card">
+      <div class="stat-value" id="threatVal">0</div><div class="stat-label">Threats Found</div>
+      <div class="bd-row">
+        <span class="bd-pill"><span class="bd-dot" style="background:var(--crit)"></span>${bd.critical} Crit</span>
+        <span class="bd-pill"><span class="bd-dot" style="background:var(--high)"></span>${bd.high} High</span>
+        <span class="bd-pill"><span class="bd-dot" style="background:var(--med)"></span>${bd.medium} Med</span></div></div>
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--safe)" id="safeVal">0</div><div class="stat-label">Safe Networks</div>
+      <div style="color:var(--text3);font-size:12px;margin-top:12px">of ${DATA.networks_scanned} total</div></div>`;
+  setTimeout(()=>{const gf=document.querySelector('.gauge-fill');if(gf)gf.style.strokeDasharray=arcLen+' 999'},100);
+  setTimeout(()=>{countUp(document.getElementById('scoreVal'),sc,1400);countUp(document.getElementById('threatVal'),DATA.threats_found,900);
+    countUp(document.getElementById('safeVal'),bd.low,900)},500)})();
+
+// === Signal chart ===
+(function(){const nets=DATA.networks.slice().sort((a,b)=>b.network.signal_strength-a.network.signal_strength);
+  document.getElementById('signals').innerHTML=`<div class="card"><h2>\u{1F4F6} Signal Strength</h2>
+    ${nets.map((n,idx)=>{const c2=CM[n.risk_level]||CM.LOW;const w=n.network.signal_strength;const lv=n.risk_level;
+      return`<div class="sig-row reveal" style="animation-delay:${.6+idx*.08}s">
+        <span class="sig-label">${esc(n.network.ssid)}</span>
+        <div class="sig-track">
+          <div class="sig-fill" style="width:${w}%;background:linear-gradient(90deg,${c2}aa,${c2});box-shadow:0 0 12px ${c2}25"></div></div>
+        <span class="sig-value">${w}%</span>
+        <span class="risk-badge" style="background:${c2};font-size:8px;padding:1px 6px">${lv}</span></div>`}).join('')}</div>`})();
+
+// === Diff ===
+(function(){if(!DATA.diff)return;const d=DATA.diff,items=[];
+  (d.new_networks||[]).forEach(n=>items.push(`<div class="diff-item diff-new"><span class="diff-icon">+</span>${esc(n.ssid)} <span class="risk-badge" style="background:${CM[n.risk_level]||'#64748b'}">${n.risk_level}</span></div>`));
+  (d.gone_networks||[]).forEach(n=>items.push(`<div class="diff-item diff-gone"><span class="diff-icon">\u2212</span>${esc(n.ssid)}</div>`));
+  if(items.length)document.getElementById('diffSection').innerHTML=`<div class="card reveal"><h2>\u{1F4C8} Changes</h2>${items.join('')}</div>`})();
+
+// === Network topology ===
+(function(){const section=document.getElementById('topo');
+  section.innerHTML='<div class="card"><h2>\u{1F578} Network Topology</h2><canvas id="topoCanvas" width="800" height="400"></canvas></div>';
+  const c=document.getElementById('topoCanvas'),x=c.getContext('2d');
+  const cw=800,ch=400;
+  // Place nodes in a circle based on signal strength (closer = stronger)
+  const nodes=DATA.networks.map((n,i)=>{
+    const a=(i/DATA.networks.length)*Math.PI*2 - Math.PI/2;
+    const dist=40+(100-n.network.signal_strength)*1.4; // stronger signal = closer to center
+    return{x:cw/2+dist*Math.cos(a),y:ch/2+dist*Math.sin(a),vx:0,vy:0,
+      ssid:n.network.ssid,col:CM[n.risk_level]||CM.LOW,lv:n.risk_level,
+      r:n.risk_level==='CRITICAL'?14:n.risk_level==='HIGH'?12:n.risk_level==='MEDIUM'?10:7,
+      sig:n.network.signal_strength,bssid:n.network.bssid}});
+  // Force simulation — repel from each other, attract to center
+  function tick(){nodes.forEach((a,i)=>{nodes.forEach((b,j)=>{if(i>=j)return;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.max(Math.hypot(dx,dy),1);
+    if(d<120){const f=(d-120)*.005;a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f}});
+    a.vx+=(cw/2-a.x)*.0005;a.vy+=(ch/2-a.y)*.0005;a.vx*=.85;a.vy*=.85;
+    a.x=Math.max(40,Math.min(cw-40,a.x+a.vx));a.y=Math.max(30,Math.min(ch-30,a.y+a.vy))})}
+  for(let i=0;i<150;i++)tick();
+  let frame=0,topoHover=null;
+
+  function draw(){x.clearRect(0,0,cw,ch);frame++;
+
+    // Subtle grid
+    x.strokeStyle='rgba(99,102,241,.03)';x.lineWidth=1;
+    for(let gx=0;gx<cw;gx+=40){x.beginPath();x.moveTo(gx,0);x.lineTo(gx,ch);x.stroke()}
+    for(let gy=0;gy<ch;gy+=40){x.beginPath();x.moveTo(0,gy);x.lineTo(cw,gy);x.stroke()}
+
+    // Range rings from center
+    [60,120,180].forEach((r,i)=>{x.beginPath();x.arc(cw/2,ch/2,r,0,Math.PI*2);
+      x.strokeStyle=`rgba(99,102,241,${.04-i*.01})`;x.setLineDash([4,8]);x.stroke();x.setLineDash([])});
+
+    // Connection lines (pulsing)
+    nodes.forEach((a,i)=>{
+      // Line from each node to center (signal connection)
+      const pulse=.03+Math.sin(frame*.015+i)*.02;
+      x.beginPath();x.moveTo(cw/2,ch/2);x.lineTo(a.x,a.y);
+      x.strokeStyle=a.col+'18';x.lineWidth=1;x.setLineDash([3,6]);x.stroke();x.setLineDash([]);
+      // Data flow dot moving along the line
+      const t=((frame*.008+i*.15)%1);const dt=1-t;
+      const dx=cw/2*dt+a.x*t,dy=ch/2*dt+a.y*t;
+      x.beginPath();x.arc(dx,dy,2,0,Math.PI*2);x.fillStyle=a.col+'88';x.fill();
+      // Lines between nearby nodes
+      nodes.forEach((b,j)=>{if(i>=j)return;const d=Math.hypot(a.x-b.x,a.y-b.y);
+        if(d<160){x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);
+          x.strokeStyle=`rgba(99,102,241,${(.06+pulse)*(1-d/160)})`;x.lineWidth=1;x.stroke()}})});
+
+    // Center node (your device)
+    const cp=Math.sin(frame*.025)*2;
+    x.beginPath();x.arc(cw/2,ch/2,5,0,Math.PI*2);x.fillStyle='#818cf8';x.fill();
+    x.beginPath();x.arc(cw/2,ch/2,14+cp,0,Math.PI*2);x.strokeStyle='rgba(129,140,248,.12)';x.lineWidth=1.5;x.stroke();
+    x.beginPath();x.arc(cw/2,ch/2,24+cp*1.5,0,Math.PI*2);x.strokeStyle='rgba(129,140,248,.06)';x.lineWidth=1;x.stroke();
+    x.fillStyle='rgba(129,140,248,.5)';x.font='bold 9px Inter,sans-serif';x.textAlign='center';
+    x.fillText('YOU',cw/2,ch/2+32);
+
+    // Network nodes
+    nodes.forEach(n=>{const pulse=Math.sin(frame*.02+n.x)*.12;const hov=n===topoHover;
+      // Outer glow
+      if(n.lv==='CRITICAL'||n.lv==='HIGH'){
+        x.beginPath();x.arc(n.x,n.y,n.r*2.2+Math.sin(frame*.03+n.y)*3,0,Math.PI*2);
+        x.fillStyle=n.col+'08';x.fill()}
+      // Glow ring
+      x.beginPath();x.arc(n.x,n.y,n.r*(1+pulse)*(hov?1.5:1),0,Math.PI*2);
+      x.fillStyle=n.col+(hov?'44':'1a');x.fill();
+      // Core
+      x.beginPath();x.arc(n.x,n.y,n.r*(hov?.75:.5),0,Math.PI*2);x.fillStyle=n.col;x.fill();
+      // Label
+      x.fillStyle=hov?'rgba(226,232,240,.95)':'rgba(226,232,240,.55)';
+      x.font=(hov?'bold 11px':'10px')+' Inter,sans-serif';x.textAlign='center';
+      x.fillText(n.ssid,n.x,n.y+n.r+16);
+      // Hover detail
+      if(hov){x.fillStyle='rgba(100,116,139,.7)';x.font='9px JetBrains Mono,monospace';
+        x.fillText(n.sig+'% \u00b7 '+n.bssid,n.x,n.y+n.r+28);
+        x.fillText(n.lv,n.x,n.y-n.r-8)}});
+    requestAnimationFrame(draw)}
+
+  c.addEventListener('mousemove',e=>{const rect=c.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(cw/rect.width),my=(e.clientY-rect.top)*(ch/rect.height);
+    topoHover=null;nodes.forEach(n=>{if(Math.hypot(n.x-mx,n.y-my)<n.r+10)topoHover=n});
+    c.style.cursor=topoHover?'pointer':'default'});
+  draw()})();
+
+// === Networks ===
+(function(){const sorted=DATA.networks.slice().sort((a,b)=>b.risk_score-a.risk_score);
+  const cards=sorted.map((n,i)=>{
+    const ni=n.network,lv=n.risk_level,col=CM[lv]||CM.LOW,vendor=n.vendor_match||'';
+    const bars=[25,50,75,100].map((t,b)=>{const a=ni.signal_strength>=t?'active':'';const h=8+b*5;
+      const s=a&&lv!=='LOW'?`height:${h}px;background:${col}`:`height:${h}px`;
+      return`<div class="sig-bar ${a}" style="${s}"></div>`}).join('');
+    let threatHtml='';
+    if(n.threats.length){
+      threatHtml=n.threats.map(t=>{
+        const caps=(t.capabilities||[]).map(c=>`<span class="cap-tag">${esc(c)}</span>`).join('');
+        return`<div class="threat-detail"><div class="threat-vendor">${esc(t.vendor||'Unknown')}</div>
+          <div class="threat-type">${esc(t.detection_type||'')}</div>
+          <div class="threat-match">Matched: ${esc((t.match_reason||[]).join(', '))}</div>
+          <div class="cap-list">${caps}</div>
+          ${t.mitigation?`<div class="threat-mit">\u{1F6E1} ${esc(t.mitigation)}</div>`:''}</div>`}).join('')}
+    else threatHtml='<div class="safe-msg">\u2705 No privacy threats detected</div>';
+    const cls=lv==='CRITICAL'?'threat-crit':lv==='HIGH'?'threat-high':lv==='MEDIUM'?'threat-med':'threat-low';
+    return`<div class="net-card ${cls}" onclick="openPanel(${i})" style="cursor:pointer">
+      <div class="net-header"><div class="net-name-row">
+        <span class="risk-dot" style="background:${col};color:${col}"></span>
+        <span class="net-ssid">${esc(ni.ssid)}</span>
+        <span class="risk-badge" style="background:${col}">${lv}</span>
+        ${vendor?`<span class="vendor-tag">${esc(vendor)}</span>`:''}</div>
+        <div class="sig-bars">${bars}<span class="sig-pct">${ni.signal_strength}%</span></div></div>
+      <div class="net-meta"><span><code>${esc(ni.bssid)}</code></span><span>${esc(ni.encryption)}</span><span>Risk ${n.risk_score}/100</span></div>
+      ${threatHtml}</div>`}).join('');
+  document.getElementById('networks').innerHTML=`<div class="card"><h2>\u{1F4E1} Network Analysis</h2>
+    <div class="net-toolbar">
+      <input type="text" class="net-search" id="netSearch" placeholder="Search networks, vendors, BSSID..." oninput="filterNets()">
+      <button class="sort-btn active" data-sort="risk" onclick="sortNets('risk',this)">Risk</button>
+      <button class="sort-btn" data-sort="signal" onclick="sortNets('signal',this)">Signal</button>
+      <button class="sort-btn" data-sort="name" onclick="sortNets('name',this)">Name</button>
+    </div>
+    <div id="netCards">${cards}</div></div>`})();
+
+// === Natural language summary ===
+(function(){
+  const sc=DATA.threat_score,bd=DATA.threat_breakdown,total=DATA.networks_scanned;
+  let text='';
+  if(sc===0)text=`<strong>${total} networks</strong> were scanned in your area and <strong style="color:var(--safe)">none pose a privacy threat</strong>. All detected routers use standard WiFi without known CSI surveillance capabilities. Your wireless environment appears safe.`;
+  else{
+    const threats=DATA.networks.filter(n=>n.threats.length);
+    const vendors=[...new Set(threats.map(n=>n.vendor_match).filter(Boolean))];
+    const critNames=DATA.networks.filter(n=>n.risk_level==='CRITICAL').map(n=>n.network.ssid);
+    const highNames=DATA.networks.filter(n=>n.risk_level==='HIGH').map(n=>n.network.ssid);
+    text=`Scan detected <strong>${total} networks</strong> with <span class="summary-highlight" style="background:${CM.CRITICAL}22;color:${CM.CRITICAL}">${DATA.threats_found} threat${DATA.threats_found>1?'s':''}</span> from <strong>${vendors.join(', ')}</strong>. `;
+    if(critNames.length)text+=`<span class="summary-highlight" style="background:${CM.CRITICAL}18;color:${CM.CRITICAL}">CRITICAL</span> surveillance detected on <strong>${critNames.join(', ')}</strong> with full CSI extraction capabilities. `;
+    if(highNames.length)text+=`<strong>${highNames.join(', ')}</strong> ${highNames.length>1?'have':'has'} motion sensing enabled. `;
+    text+=`Overall threat score: <strong style="color:${sc>=80?CM.CRITICAL:sc>=60?CM.HIGH:CM.MEDIUM}">${sc}/100</strong>.`}
+  document.getElementById('summary').innerHTML=`<div class="card"><h2>\u{1F4DD} Scan Summary</h2><p class="summary-text">${text}</p></div>`})();
+
+// === Smart recommendations ===
+(function(){
+  const recs=[];const bd=DATA.threat_breakdown;
+  // Build prioritized recs
+  if(bd.critical>0)recs.push({sev:'critical',icon:'\u{1F6A8}',color:CM.CRITICAL,title:'Avoid critical surveillance networks',
+    desc:'Networks with full CSI extraction can monitor breathing, heart rate, and body position through walls. Disconnect immediately and disable WiFi near these routers.'});
+  if(bd.high>0)recs.push({sev:'high',icon:'\u26A0',color:CM.HIGH,title:'Disable motion sensing features',
+    desc:'High-risk routers have active motion/presence tracking. Open your router app and disable motion sensing, or replace ISP equipment with your own router.'});
+  if(bd.medium>0)recs.push({sev:'medium',icon:'\u{1F7E1}',color:CM.MEDIUM,title:'Review router privacy settings',
+    desc:'Some nearby routers have potential surveillance features. Check manufacturer documentation and disable analytics, presence sensing, or HomeShield features.'});
+  recs.push({sev:'info',icon:'\u{1F510}',color:CM.LOW,title:'Enable MAC address randomization',
+    desc:'Prevents tracking across networks. iOS: Settings > WiFi > Private Address. Android: Settings > WiFi > Privacy > Randomized MAC.'});
+  recs.push({sev:'info',icon:'\u{1F30D}',color:'var(--accent)',title:'Use a VPN on untrusted networks',
+    desc:'Encrypts all traffic and prevents network-level surveillance. Use a no-log VPN provider whenever connecting to public or unknown WiFi.'});
+  recs.push({sev:'info',icon:'\u{1F512}',color:CM.LOW,title:'Disable WPS, UPnP, and remote management',
+    desc:'These features expand your attack surface. Turn them off in your router admin panel to reduce vulnerability to exploitation.'});
+
+  const cards=recs.map(r=>`<div class="rec-card">
+    <div class="rec-icon" style="background:${r.color}15;color:${r.color}">${r.icon}</div>
+    <div class="rec-body"><div class="rec-title">${esc(r.title)}</div><div class="rec-desc">${esc(r.desc)}</div></div>
+    ${r.sev!=='info'?`<span class="rec-sev" style="background:${r.color}18;color:${r.color}">${r.sev}</span>`:''}</div>`).join('');
+  document.getElementById('recs').innerHTML=`<div class="card"><h2>\u{1F6E1} Recommended Actions</h2>${cards}</div>`})();
+
+// === Network search & sort ===
+function filterNets(){const q=document.getElementById('netSearch').value.toLowerCase();
+  document.querySelectorAll('.net-card').forEach(c=>{
+    const text=c.textContent.toLowerCase();c.style.display=text.includes(q)?'':'none'})}
+function sortNets(by,btn){
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  const container=document.getElementById('netCards');const cards=[...container.querySelectorAll('.net-card')];
+  cards.sort((a,b)=>{
+    if(by==='risk'){const ra=parseInt(a.querySelector('.net-meta').textContent.match(/Risk (\d+)/)?.[1]||0);
+      const rb=parseInt(b.querySelector('.net-meta').textContent.match(/Risk (\d+)/)?.[1]||0);return rb-ra}
+    if(by==='signal'){const sa=parseInt(a.querySelector('.sig-pct')?.textContent||0);
+      const sb=parseInt(b.querySelector('.sig-pct')?.textContent||0);return sb-sa}
+    if(by==='name'){const na=a.querySelector('.net-ssid')?.textContent||'';
+      const nb=b.querySelector('.net-ssid')?.textContent||'';return na.localeCompare(nb)}
+    return 0});
+  cards.forEach(c=>container.appendChild(c));clickBeep()}
+
+// === Keyboard navigation for network cards ===
+(function(){let focusIdx=-1;
+  document.addEventListener('keydown',e=>{
+    const cards=[...document.querySelectorAll('.net-card')].filter(c=>c.style.display!=='none');
+    if(!cards.length)return;
+    if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();focusIdx=Math.min(focusIdx+1,cards.length-1);
+      cards.forEach(c=>c.classList.remove('focused'));cards[focusIdx].classList.add('focused');
+      cards[focusIdx].scrollIntoView({behavior:'smooth',block:'nearest'})}
+    else if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();focusIdx=Math.max(focusIdx-1,0);
+      cards.forEach(c=>c.classList.remove('focused'));cards[focusIdx].classList.add('focused');
+      cards[focusIdx].scrollIntoView({behavior:'smooth',block:'nearest'})}
+    else if(e.key==='Enter'&&focusIdx>=0&&focusIdx<cards.length){cards[focusIdx].click()}
+  })})();
+
+// === Threat capability heatmap ===
+(function(){
+  const threats=DATA.networks.filter(n=>n.threats.length>0);
+  if(threats.length===0){document.getElementById('heatmap').innerHTML='';return}
+  // Collect all unique capabilities
+  const allCaps=new Set();threats.forEach(n=>n.threats.forEach(t=>(t.capabilities||[]).forEach(c=>allCaps.add(c))));
+  const caps=[...allCaps];
+  const rows=threats.map(n=>{
+    const hasCap=new Set();n.threats.forEach(t=>(t.capabilities||[]).forEach(c=>hasCap.add(c)));
+    const col=CM[n.risk_level]||CM.LOW;
+    return`<tr><td class="hm-ssid">${esc(n.network.ssid)}</td>${caps.map(c=>
+      hasCap.has(c)?`<td class="hm-on" style="background:${col}18;color:${col}">\u25CF</td>`:`<td class="hm-off">\u00b7</td>`).join('')}</tr>`}).join('');
+  document.getElementById('heatmap').innerHTML=`<div class="card"><h2>\u{1F9E0} Threat Capability Matrix</h2>
+    <div class="heatmap"><table><thead><tr><th></th>${caps.map(c=>
+      `<th class="rotate">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></div>`})();
+
+// === Encryption analysis ===
+(function(){
+  const encMap={};DATA.networks.forEach(n=>{const e=n.network.encryption||'Unknown';encMap[e]=(encMap[e]||0)+1});
+  const entries=Object.entries(encMap).sort((a,b)=>b[1]-a[1]);
+  const total=DATA.networks.length;
+  const gradeMap={'WPA3-Personal':'A+','WPA3':'A+','WPA2-Personal':'B+','WPA2':'B','WPA2-Personal/CCMP':'B+',
+    'WPA/WPA2':'C','WPA':'D','WEP':'F','Open':'F','Unknown':'?'};
+  const gradeColor={'A+':'#22c55e','A':'#22c55e','B+':'#4ade80','B':'#86efac','C':'#eab308','D':'#f97316','F':'#ef4444','?':'#64748b'};
+  const bars=entries.map(([enc,count])=>{
+    const pct=Math.round(count/total*100);
+    const grade=gradeMap[enc]||'?';const gc=gradeColor[grade]||'#64748b';
+    return`<div class="enc-row"><span class="enc-label">${esc(enc)}</span>
+      <div class="enc-bar-track"><div class="enc-bar-fill" style="width:${pct}%;background:${gc}"></div></div>
+      <span class="enc-count">${count}</span>
+      <span class="enc-grade" style="background:${gc}22;color:${gc}">${grade}</span></div>`}).join('');
+  document.getElementById('encryption').innerHTML=`<div class="card"><h2>\u{1F512} Encryption Analysis</h2>${bars}</div>`})();
+
+// === Donut chart (replace pills in stats) ===
+(function(){
+  const bd=DATA.threat_breakdown;const total=bd.critical+bd.high+bd.medium+bd.low;if(!total)return;
+  const slices=[{n:'Critical',v:bd.critical,c:CM.CRITICAL},{n:'High',v:bd.high,c:CM.HIGH},
+    {n:'Medium',v:bd.medium,c:CM.MEDIUM},{n:'Safe',v:bd.low,c:CM.LOW}].filter(s=>s.v>0);
+  const r=44,cx=50,cy=50,circ=2*Math.PI*r;let offset=0;
+  const paths=slices.map(s=>{const pct=s.v/total;const dash=circ*pct;const gap=circ-dash;
+    const p=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.c}" stroke-width="10"
+      stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" stroke-linecap="round"
+      style="transition:stroke-dashoffset 1s ease"/>`;offset+=dash;return p}).join('');
+  const legend=slices.map(s=>`<div class="donut-legend-item"><span class="donut-legend-dot" style="background:${s.c}"></span>${s.n}: ${s.v}</div>`).join('');
+  // Replace the bd-row in the threats stat card
+  const bdRow=document.querySelector('.bd-row');
+  if(bdRow)bdRow.parentElement.innerHTML=`<div class="stat-value" id="threatVal2">${DATA.threats_found}</div><div class="stat-label">Threats Found</div>
+    <div class="donut-wrap"><svg viewBox="0 0 100 100" width="90" height="90" style="transform:rotate(-90deg)">${paths}
+      <text x="50" y="54" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" style="transform:rotate(90deg);transform-origin:50% 50%">${total}</text></svg>
+    <div class="donut-legend">${legend}</div></div>`})();
+
+// === Tab title ===
+(function(){const sc=DATA.threat_score;const icon=sc>=80?'\u{1F6A8}':sc>=60?'\u26A0':sc>=40?'\u{1F7E1}':'\u2705';
+  document.title=icon+' Score: '+sc+'/100 — WiFi Privacy Scanner'})();
+
+// === Scroll progress ===
+window.addEventListener('scroll',()=>{const h=document.documentElement;
+  const pct=(h.scrollTop/(h.scrollHeight-h.clientHeight))*100;
+  document.getElementById('scrollProg').style.width=pct+'%'});
+
+// === Risk score breakdown ===
+(function(){
+  const sc=DATA.threat_score;if(sc===0)return;
+  const statsGrid=document.getElementById('statsGrid');
+  // Add a 4th breakdown card below the stats
+  const factors=[];
+  DATA.networks.forEach(n=>{if(!n.threats.length)return;
+    n.threats.forEach(t=>{factors.push({name:n.network.ssid+' ('+t.vendor+')',score:n.risk_score,col:CM[n.risk_level]})})});
+  if(!factors.length)return;
+  const maxScore=Math.max(...factors.map(f=>f.score));
+  const html=factors.map(f=>{
+    const parts=f.name.split(' (');const ssid=parts[0];const vendor=parts[1]?parts[1].replace(')',''):'';
+    return`<div class="rb-item">
+      <div class="rb-top"><span class="rb-label">${esc(ssid)} <span class="rb-vendor">${vendor?'\u00b7 '+esc(vendor):''}</span></span>
+        <span class="rb-value" style="color:${f.col}">${f.score}/100</span></div>
+      <div class="rb-bar"><div class="rb-fill" style="width:${f.score}%;background:${f.col}"></div></div></div>`}).join('');
+  // Insert after statsGrid
+  const div=document.createElement('div');div.className='card reveal';div.innerHTML=`<h2>\u{1F4CA} Risk Breakdown</h2>${html}`;
+  statsGrid.after(div)})();
+
+// === Network detail panel ===
+const sortedNets=DATA.networks.slice().sort((a,b)=>b.risk_score-a.risk_score);
+function openPanel(idx){
+  const n=sortedNets[idx];if(!n)return;clickBeep();
+  const ni=n.network,col=CM[n.risk_level]||CM.LOW;
+  let html=`<h3 style="color:${col}">${esc(ni.ssid)}</h3>
+    <div class="panel-subtitle">${n.risk_level} \u00b7 Risk Score: ${n.risk_score}/100</div>
+    <div class="panel-meter"><div class="panel-meter-fill" style="width:${n.risk_score}%;background:${col}"></div></div>
+    <div class="panel-section" style="margin-top:20px"><div class="panel-section-title">Network Details</div>
+      <div class="panel-stat"><span class="panel-stat-label">BSSID</span><span class="panel-stat-value">${esc(ni.bssid)}</span></div>
+      <div class="panel-stat"><span class="panel-stat-label">Signal</span><span class="panel-stat-value">${ni.signal_strength}%</span></div>
+      <div class="panel-stat"><span class="panel-stat-label">Encryption</span><span class="panel-stat-value">${esc(ni.encryption)}</span></div>
+      <div class="panel-stat"><span class="panel-stat-label">Vendor</span><span class="panel-stat-value">${esc(n.vendor_match||'Unknown')}</span></div>
+      <div class="panel-stat"><span class="panel-stat-label">OUI Prefix</span><span class="panel-stat-value">${esc(ni.bssid.split(':').slice(0,3).join(':'))}</span></div>
+    </div>`;
+  if(n.threats.length){
+    n.threats.forEach(t=>{
+      html+=`<div class="panel-section"><div class="panel-section-title">Threat: ${esc(t.vendor)}</div>
+        <div class="panel-stat"><span class="panel-stat-label">Type</span><span class="panel-stat-value">${esc(t.detection_type)}</span></div>
+        ${t.models?`<div class="panel-stat"><span class="panel-stat-label">Models</span><span class="panel-stat-value">${esc(t.models.join(', '))}</span></div>`:''}
+        <div class="panel-stat"><span class="panel-stat-label">Matched By</span><span class="panel-stat-value" style="font-size:10px;max-width:200px;text-align:right">${esc(t.match_reason.join(', '))}</span></div>
+        <div class="panel-section-title" style="margin-top:14px">Capabilities</div>
+        <div class="cap-list" style="margin-top:4px">${(t.capabilities||[]).map(c=>`<span class="cap-tag">${esc(c)}</span>`).join('')}</div>
+        ${t.mitigation?`<div style="margin-top:14px;padding:12px;background:rgba(255,255,255,.02);border-radius:8px;border:1px solid var(--border)">
+          <div class="panel-section-title">Mitigation</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.6">${esc(t.mitigation)}</div></div>`:''}</div>`})}
+  else html+='<div class="panel-section"><div style="text-align:center;padding:24px;color:var(--text3)">\u2705 No threats detected for this network</div></div>';
+  // Signal quality meter
+  const sq=ni.signal_strength;const sqLabel=sq>=80?'Excellent':sq>=60?'Good':sq>=40?'Fair':'Weak';
+  html+=`<div class="panel-section"><div class="panel-section-title">Signal Quality: ${sqLabel}</div>
+    <div class="panel-meter"><div class="panel-meter-fill" style="width:${sq}%;background:${sq>=60?'var(--safe)':sq>=40?'var(--med)':'var(--crit)'}"></div></div></div>`;
+  document.getElementById('panelContent').innerHTML=html;
+  document.getElementById('panelOverlay').classList.add('open');
+  document.getElementById('detailPanel').classList.add('open')}
+function closePanel(){
+  document.getElementById('panelOverlay').classList.remove('open');
+  document.getElementById('detailPanel').classList.remove('open')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel()});
+
+// === FAB auto-hide ===
+(function(){let timer;const fab=document.getElementById('fab');
+  function show(){fab.classList.remove('hidden');clearTimeout(timer);timer=setTimeout(()=>fab.classList.add('hidden'),6000)}
+  document.addEventListener('mousemove',show);document.addEventListener('scroll',show);show()})();
+
+// === Parallax radar on scroll ===
+(function(){const radar=document.querySelector('.radar-wrap');if(!radar)return;
+  window.addEventListener('scroll',()=>{const y=window.scrollY;
+    radar.style.transform=`translateY(${y*.15}px) scale(${1-y*.0003})`;
+    radar.style.opacity=Math.max(0,1-y*.002)})})();
+
+// === Replay FX (for FAB button) ===
+function replayFx(){const sl=document.getElementById('scanline');sl.style.animation='none';sl.offsetHeight;
+  sl.style.animation='scanDown 2s ease-out forwards';scanBeep();
+  if(DATA.threat_score===0)setTimeout(shieldActivation,400);
+  else setTimeout(threatAlert,300)}
+
+// === Keyboard shortcuts ===
+document.addEventListener('keydown',e=>{
+  if(e.key==='s'||e.key==='S'){replayFx()}
+  if(e.key==='m'||e.key==='M'){soundEnabled=!soundEnabled;showToast(soundEnabled?'Sound on':'Sound muted','info',2000)}});
+
+// === Scroll reveal (delayed init for dynamically added elements) ===
+setTimeout(()=>{document.querySelectorAll('.reveal').forEach(el=>revealObs.observe(el))},100);
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+</script>
+</body>
+</html>
