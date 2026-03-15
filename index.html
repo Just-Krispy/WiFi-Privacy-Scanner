@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFi Privacy Scanner - Detect Surveillance Routers</title>
+<meta name="description" content="Open-source tool to detect CSI-capable WiFi routers that can monitor presence, motion, vital signs, and biometrics through walls.">
+<style>
+  :root { 
+    --bg: #0f1117; 
+    --card: #1a1d27; 
+    --text: #e2e8f0; 
+    --text2: #94a3b8; 
+    --border: #2d3348; 
+    --accent: #6366f1;
+    --critical: #ef4444;
+    --high: #f97316;
+    --medium: #eab308;
+    --safe: #22c55e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { 
+    background:var(--bg); 
+    color:var(--text); 
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; 
+    padding:24px; 
+    max-width:1100px; 
+    margin:0 auto;
+    line-height:1.6;
+  }
+  
+  /* Header */
+  header { text-align:center; padding:48px 0 32px; }
+  h1 { font-size:48px; margin-bottom:12px; background:linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .tagline { font-size:20px; color:var(--text2); margin-bottom:32px; }
+  
+  /* Cards */
+  .card { 
+    background:var(--card); 
+    border:1px solid var(--border); 
+    border-radius:12px; 
+    padding:24px; 
+    margin-bottom:20px; 
+  }
+  h2 { 
+    font-size:24px; 
+    margin-bottom:16px; 
+    display:flex; 
+    align-items:center; 
+    gap:8px;
+  }
+  h3 { 
+    font-size:18px; 
+    margin:20px 0 12px; 
+    color:var(--accent);
+  }
+  
+  /* What it detects */
+  .threat-grid { 
+    display:grid; 
+    grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); 
+    gap:16px; 
+    margin-top:16px;
+  }
+  .threat-item { 
+    background:rgba(99,102,241,0.05); 
+    padding:16px; 
+    border-radius:8px; 
+    border:1px solid var(--border);
+  }
+  .threat-item strong { 
+    color:var(--critical); 
+    font-size:16px; 
+    display:block; 
+    margin-bottom:8px;
+  }
+  
+  /* Risk levels */
+  .risk-levels { 
+    display:grid; 
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); 
+    gap:12px; 
+    margin-top:16px;
+  }
+  .risk-level { 
+    padding:12px; 
+    border-radius:8px; 
+    border-left:4px solid;
+  }
+  .risk-critical { border-color:var(--critical); background:rgba(239,68,68,0.1); }
+  .risk-high { border-color:var(--high); background:rgba(249,115,22,0.1); }
+  .risk-medium { border-color:var(--medium); background:rgba(234,179,8,0.1); }
+  .risk-safe { border-color:var(--safe); background:rgba(34,197,94,0.1); }
+  .risk-level strong { font-size:14px; display:block; margin-bottom:4px; }
+  .risk-level span { font-size:12px; color:var(--text2); }
+  
+  /* Code blocks */
+  pre { 
+    background:rgba(0,0,0,0.3); 
+    padding:16px; 
+    border-radius:8px; 
+    overflow-x:auto; 
+    margin:12px 0;
+    border:1px solid var(--border);
+  }
+  code { 
+    font-family:'Courier New', monospace; 
+    font-size:13px; 
+    color:#22c55e;
+  }
+  
+  /* Buttons/Links */
+  .btn-group { 
+    display:flex; 
+    gap:12px; 
+    flex-wrap:wrap; 
+    margin-top:24px;
+    justify-content:center;
+  }
+  .btn { 
+    display:inline-block; 
+    padding:12px 24px; 
+    background:var(--accent); 
+    color:white; 
+    text-decoration:none; 
+    border-radius:8px; 
+    font-weight:600;
+    transition:all 0.2s;
+  }
+  .btn:hover { 
+    background:#4f46e5; 
+    transform:translateY(-2px);
+    box-shadow:0 4px 12px rgba(99,102,241,0.4);
+  }
+  .btn-secondary { 
+    background:transparent; 
+    border:2px solid var(--accent); 
+    color:var(--accent);
+  }
+  .btn-secondary:hover { 
+    background:rgba(99,102,241,0.1);
+    transform:translateY(-2px);
+  }
+  
+  /* Report list */
+  .report-list { 
+    list-style:none; 
+    margin-top:16px;
+  }
+  .report-list li { 
+    padding:12px; 
+    border-bottom:1px solid var(--border);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .report-list li:last-child { border-bottom:none; }
+  .report-list a { 
+    color:var(--accent); 
+    text-decoration:none; 
+    font-size:14px;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .report-list a:hover { 
+    text-decoration:underline;
+  }
+  .report-date { 
+    color:var(--text2); 
+    font-size:12px;
+  }
+  
+  /* Footer */
+  footer { 
+    text-align:center; 
+    color:var(--text2); 
+    font-size:13px; 
+    margin-top:48px; 
+    padding:24px 0; 
+    border-top:1px solid var(--border);
+  }
+  footer a { 
+    color:var(--accent); 
+    text-decoration:none;
+  }
+  footer a:hover { 
+    text-decoration:underline;
+  }
+  
+  /* Responsive */
+  @media(max-width:700px) { 
+    h1 { font-size:36px; }
+    .tagline { font-size:16px; }
+    .btn-group { flex-direction:column; }
+    .threat-grid, .risk-levels { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ WiFi Privacy Scanner</h1>
+  <p class="tagline">Detect CSI-capable surveillance routers in your WiFi environment</p>
+  <div class="btn-group">
+    <a href="#reports" class="btn">📊 View Scan Reports</a>
+    <a href="#usage" class="btn btn-secondary">📖 Usage Guide</a>
+    <a href="https://github.com/your-repo/wifi-privacy-scanner" class="btn btn-secondary" target="_blank">⭐ GitHub</a>
+  </div>
+</header>
+
+<div class="card">
+  <h2>🎯 What This Tool Does</h2>
+  <p>WiFi Privacy Scanner is an open-source security tool that scans nearby WiFi networks and identifies routers capable of advanced surveillance techniques using Channel State Information (CSI).</p>
+  
+  <div class="threat-grid">
+    <div class="threat-item">
+      <strong>🎯 Motion Sensing</strong>
+      <p>Detects movement and presence through walls without cameras</p>
+    </div>
+    <div class="threat-item">
+      <strong>💓 Vital Signs Monitoring</strong>
+      <p>Can detect heart rate, breathing patterns, and other biometrics</p>
+    </div>
+    <div class="threat-item">
+      <strong>🚶 Biometric Tracking</strong>
+      <p>95.5% accuracy identifying individuals by their WiFi "signature"</p>
+    </div>
+    <div class="threat-item">
+      <strong>🏃 Pose Estimation</strong>
+      <p>Full body tracking and activity recognition through solid objects</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>⚠️ Known Threat Systems</h2>
+  <p>The scanner detects these surveillance-capable systems:</p>
+  <ul style="list-style:none; margin-top:12px;">
+    <li style="padding:6px 0;">🔴 <strong>Xfinity (XB6/XB7/XB8)</strong> - Motion sensing and occupancy tracking</li>
+    <li style="padding:6px 0;">🔴 <strong>Origin AI</strong> - Vital signs monitoring and CSI extraction</li>
+    <li style="padding:6px 0;">🔴 <strong>WhoFi</strong> - 95.5% biometric identification accuracy</li>
+    <li style="padding:6px 0;">🔴 <strong>DensePose</strong> - Full body pose estimation</li>
+    <li style="padding:6px 0;">🔴 <strong>Google Nest</strong> - Soli radar-based presence detection</li>
+    <li style="padding:6px 0;">🔴 <strong>Cognitive Systems</strong> - WiFi motion detection platform</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>📊 Risk Levels</h2>
+  <p>Each network is scored 0-100 and categorized into risk levels:</p>
+  <div class="risk-levels">
+    <div class="risk-level risk-critical">
+      <strong>🔴 CRITICAL (80-100)</strong>
+      <span>Full CSI extraction, biometric tracking - <strong>AVOID</strong></span>
+    </div>
+    <div class="risk-level risk-high">
+      <strong>🟠 HIGH (60-79)</strong>
+      <span>Motion sensing enabled - <strong>DISABLE OR REPLACE</strong></span>
+    </div>
+    <div class="risk-level risk-medium">
+      <strong>🟡 MEDIUM (40-59)</strong>
+      <span>Basic presence detection - <strong>REVIEW SETTINGS</strong></span>
+    </div>
+    <div class="risk-level risk-safe">
+      <strong>🟢 LOW (0-39)</strong>
+      <span>Standard WiFi router - <strong>SAFE</strong></span>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="usage">
+  <h2>🚀 Usage Instructions</h2>
+  
+  <h3>1. Installation</h3>
+  <p>No external dependencies required - uses Python 3 standard library:</p>
+  <pre><code>git clone https://github.com/your-repo/wifi-privacy-scanner.git
+cd wifi-privacy-scanner</code></pre>
+  
+  <h3>2. Run a Scan</h3>
+  <pre><code>python3 scripts/scanner.py</code></pre>
+  <p>The scanner will:</p>
+  <ul style="list-style:disc; margin-left:24px; margin-top:8px;">
+    <li>Detect all nearby WiFi networks</li>
+    <li>Analyze each router against the CSI threat database</li>
+    <li>Calculate a threat score (0-100)</li>
+    <li>Save results to <code style="color:var(--accent);">output/scan_*.json</code></li>
+  </ul>
+  
+  <h3>3. Generate Reports</h3>
+  <pre><code>LATEST=$(ls -t output/scan_*.json | head -1)
+python3 scripts/report_generator.py "$LATEST"</code></pre>
+  <p>Creates human-readable reports in Markdown and HTML formats.</p>
+  
+  <h3>4. View Results</h3>
+  <pre><code># View latest scan summary
+cat output/scan_*_report.md
+
+# Or open the HTML report in a browser
+firefox output/scan_*_report.html</code></pre>
+</div>
+
+<div class="card" id="reports">
+  <h2>📁 Recent Scan Reports</h2>
+  <p>Browse previously generated scan reports:</p>
+  <ul class="report-list" id="reportList">
+    <li>
+      <span>Loading reports...</span>
+    </li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>🛡️ Privacy Protection Tips</h2>
+  <ul style="list-style:none;">
+    <li style="padding:8px 0; border-bottom:1px solid var(--border);">
+      <strong>✅ Enable MAC Randomization</strong><br>
+      <span style="color:var(--text2); font-size:13px;">Prevents device tracking across networks</span>
+    </li>
+    <li style="padding:8px 0; border-bottom:1px solid var(--border);">
+      <strong>🔒 Use a VPN</strong><br>
+      <span style="color:var(--text2); font-size:13px;">Encrypts all traffic, even on untrusted networks</span>
+    </li>
+    <li style="padding:8px 0; border-bottom:1px solid var(--border);">
+      <strong>📴 Disable WiFi When Not Needed</strong><br>
+      <span style="color:var(--text2); font-size:13px;">Limits exposure to surveillance capabilities</span>
+    </li>
+    <li style="padding:8px 0; border-bottom:1px solid var(--border);">
+      <strong>🔧 Replace CSI-Capable Routers</strong><br>
+      <span style="color:var(--text2); font-size:13px;">Use standard routers without motion/presence features</span>
+    </li>
+    <li style="padding:8px 0;">
+      <strong>⚙️ Review Router Settings</strong><br>
+      <span style="color:var(--text2); font-size:13px;">Disable motion detection, presence sensing, and remote management</span>
+    </li>
+  </ul>
+</div>
+
+<footer>
+  <strong>WiFi Privacy Scanner</strong><br>
+  Built by <a href="https://github.com/privacy-tech-agency" target="_blank">Privacy Tech AI Agency</a><br>
+  <br>
+  ⚠️ <em>This tool detects known surveillance routers. It cannot guarantee complete privacy.<br>
+  Always use encryption and follow security best practices.</em><br>
+  <br>
+  Open-source security tool · No tracking · No data collection<br>
+  Licensed under MIT · <a href="https://github.com/your-repo/wifi-privacy-scanner/blob/main/LICENSE" target="_blank">View License</a>
+</footer>
+
+<script>
+// Dynamically load scan reports from output/ directory
+async function loadReports() {
+  try {
+    // Try to fetch the output directory listing
+    // Note: This requires the server to support directory listing or a reports.json manifest
+    const response = await fetch('output/');
+    if (!response.ok) throw new Error('Cannot list reports');
+    
+    const text = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    const links = Array.from(doc.querySelectorAll('a'))
+      .map(a => a.getAttribute('href'))
+      .filter(href => href && href.endsWith('_report.html'));
+    
+    if (links.length === 0) {
+      document.getElementById('reportList').innerHTML = '<li><span style="color:var(--text2);">No reports found. Run a scan first!</span></li>';
+      return;
+    }
+    
+    // Sort by filename (which includes timestamp)
+    links.sort().reverse();
+    
+    const reportList = links.map(link => {
+      const filename = link.split('/').pop();
+      const match = filename.match(/scan_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+      let dateStr = 'Unknown date';
+      if (match) {
+        const [_, year, month, day, hour, min, sec] = match;
+        dateStr = `${year}-${month}-${day} ${hour}:${min}:${sec}`;
+      }
+      
+      return `
+        <li>
+          <span class="report-date">${dateStr}</span>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <a href="output/${link}" target="_blank">🌐 HTML Report</a>
+            <a href="output/${link.replace('_report.html', '_report.md')}" target="_blank">📄 Markdown</a>
+            <a href="output/${link.replace('_report.html', '.json')}" target="_blank">📊 Raw JSON</a>
+          </div>
+        </li>
+      `;
+    }).join('');
+    
+    document.getElementById('reportList').innerHTML = reportList;
+  } catch (error) {
+    // Fallback: Show manual links to output folder
+    document.getElementById('reportList').innerHTML = `
+      <li>
+        <span style="color:var(--text2);">
+          Unable to automatically list reports. 
+          <a href="output/" style="color:var(--accent);">Browse the output/ folder</a> to view scan results.
+        </span>
+      </li>
+    `;
+  }
+}
+
+// Load reports when page loads
+loadReports();
+</script>
+
+</body>
+</html>

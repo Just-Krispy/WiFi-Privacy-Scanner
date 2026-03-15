@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFi Privacy Scan Report</title>
+<style>
+  :root { --bg: #0f1117; --card: #1a1d27; --text: #e2e8f0; --text2: #94a3b8; --border: #2d3348; --accent: #6366f1; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:24px; max-width:1100px; margin:0 auto; }
+  h1 { font-size:28px; margin-bottom:4px; } h2 { font-size:18px; margin-bottom:12px; color:var(--text2); }
+  .meta { color:var(--text2); font-size:13px; margin-bottom:24px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media(max-width:700px) { .grid { grid-template-columns:1fr; } }
+
+  /* Gauge */
+  .gauge-wrap { display:flex; flex-direction:column; align-items:center; padding:20px 0; }
+  .gauge { position:relative; width:200px; height:100px; overflow:hidden; }
+  .gauge-bg { width:200px; height:200px; border-radius:50%; background:conic-gradient(from 180deg, #22c55e 0deg, #eab308 90deg, #f97316 135deg, #ef4444 180deg, transparent 180deg);
+    -webkit-mask:radial-gradient(circle at center, transparent 60px, black 61px); mask:radial-gradient(circle at center, transparent 60px, black 61px); }
+  .gauge-needle { position:absolute; bottom:0; left:50%; width:3px; height:80px; background:white; border-radius:2px;
+    transform-origin:bottom center; transform:rotate(72.0deg); transition:transform 1.5s cubic-bezier(.4,2,.2,1); }
+  .gauge-score { font-size:36px; font-weight:bold; margin-top:-10px; }
+  .gauge-label { color:var(--text2); font-size:13px; }
+
+  /* Breakdown */
+  .bd { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+  .bd-item { text-align:center; }
+  .bd-count { font-size:24px; font-weight:bold; }
+  .bd-label { font-size:11px; color:var(--text2); text-transform:uppercase; }
+
+  /* Table */
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--text2); font-weight:500; padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:hover { background:rgba(99,102,241,.05); }
+  .risk-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .risk-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; color:white; margin-right:4px; }
+  code { background:rgba(99,102,241,.1); padding:2px 6px; border-radius:4px; font-size:12px; }
+  .caps-cell { max-width:200px; font-size:12px; color:var(--text2); }
+
+  /* Diff */
+  .diff-item { padding:6px 0; font-size:13px; border-bottom:1px solid var(--border); }
+  .diff-new { color:#22c55e; } .diff-gone { color:#ef4444; }
+
+  /* Recs */
+  ul { list-style:none; } li { padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  li:last-child { border-bottom:none; }
+
+  .footer { text-align:center; color:var(--text2); font-size:11px; margin-top:32px; padding:16px 0; border-top:1px solid var(--border); }
+</style>
+</head>
+<body>
+  <h1>🛡️ WiFi Privacy Scan Report</h1>
+  <div class="meta">Scanned 2026-03-15 18:05:21 · Linux · v2.0.0 · 6 networks</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Threat Score</h2>
+      <div class="gauge-wrap">
+        <div class="gauge">
+          <div class="gauge-bg"></div>
+          <div class="gauge-needle"></div>
+        </div>
+        <div class="gauge-score">90<span style="font-size:16px;color:var(--text2)">/100</span></div>
+        <div class="gauge-label">CRITICAL</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Breakdown</h2>
+      <div class="bd">
+        <div class="bd-item"><div class="bd-count" style="color:#ef4444">1</div><div class="bd-label">Critical</div></div>
+        <div class="bd-item"><div class="bd-count" style="color:#f97316">2</div><div class="bd-label">High</div></div>
+        <div class="bd-item"><div class="bd-count" style="color:#eab308">2</div><div class="bd-label">Medium</div></div>
+        <div class="bd-item"><div class="bd-count" style="color:#22c55e">1</div><div class="bd-label">Safe</div></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--text2)">
+        5 threat(s) across 6 networks
+      </div>
+    </div>
+  </div>
+
+  
+
+  <div class="card">
+    <h2>📡 Network Analysis</h2>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Network</th><th>BSSID</th><th>Signal</th><th>Encryption</th><th>Vendor</th><th>Risk</th><th>Capabilities</th></tr></thead>
+      <tbody>
+            <tr>
+              <td><span class="risk-dot" style="background:#ef4444"></span> OriginWireless_Mesh</td>
+              <td><code>00:1B:63:CD:EF:12</code></td>
+              <td>70%</td>
+              <td>WPA3</td>
+              <td>Origin AI</td>
+              <td><span class="risk-badge" style="background:#ef4444">CRITICAL</span> 90</td>
+              <td class="caps-cell">Full CSI extraction, Vital signs monitoring, Breathing/heart rate detection</td>
+            </tr>
+
+            <tr>
+              <td><span class="risk-dot" style="background:#f97316"></span> xfinitywifi</td>
+              <td><code>B0:8B:D0:12:34:56</code></td>
+              <td>85%</td>
+              <td>WPA2</td>
+              <td>Xfinity</td>
+              <td><span class="risk-badge" style="background:#f97316">HIGH</span> 70</td>
+              <td class="caps-cell">Presence detection, Motion tracking, Room-level occupancy</td>
+            </tr>
+
+            <tr>
+              <td><span class="risk-dot" style="background:#f97316"></span> HOME-WiFi</td>
+              <td><code>00:24:A5:78:90:AB</code></td>
+              <td>92%</td>
+              <td>WPA2</td>
+              <td>Xfinity</td>
+              <td><span class="risk-badge" style="background:#f97316">HIGH</span> 70</td>
+              <td class="caps-cell">Presence detection, Motion tracking, Room-level occupancy</td>
+            </tr>
+
+            <tr>
+              <td><span class="risk-dot" style="background:#eab308"></span> NETGEAR-5G</td>
+              <td><code>34:98:B5:11:22:33</code></td>
+              <td>40%</td>
+              <td>WPA2</td>
+              <td>Netgear (Armor)</td>
+              <td><span class="risk-badge" style="background:#eab308">MEDIUM</span> 50</td>
+              <td class="caps-cell">Device fingerprinting (Armor), Traffic analysis, Vulnerability scanning</td>
+            </tr>
+
+            <tr>
+              <td><span class="risk-dot" style="background:#eab308"></span> GoogleNest_1234</td>
+              <td><code>F4:F5:D8:AA:BB:CC</code></td>
+              <td>55%</td>
+              <td>WPA3</td>
+              <td>Google Nest</td>
+              <td><span class="risk-badge" style="background:#eab308">MEDIUM</span> 50</td>
+              <td class="caps-cell">Presence detection, Sleep sensing (Nest Hub), Gesture recognition (Soli)</td>
+            </tr>
+
+            <tr>
+              <td><span class="risk-dot" style="background:#22c55e"></span> NormalRouter</td>
+              <td><code>AA:BB:CC:DD:EE:FF</code></td>
+              <td>65%</td>
+              <td>WPA2</td>
+              <td>—</td>
+              <td><span class="risk-badge" style="background:#22c55e">LOW</span> 0</td>
+              <td class="caps-cell">None detected</td>
+            </tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💡 Recommendations</h2>
+    <ul><li>🚨 CRITICAL: 1 network(s) with severe surveillance capabilities. Avoid these networks. Use VPN and disable WiFi when not needed.</li>
+<li>⚠️  HIGH RISK: 2 network(s) with motion sensing. Disable motion/presence features or replace router.</li>
+<li>ℹ️  MEDIUM RISK: 2 network(s) with potential surveillance. Review router docs and disable unnecessary sensing.</li>
+<li>💡 Enable MAC address randomization on your devices</li>
+<li>💡 Use VPN to encrypt traffic and limit exposure</li>
+<li>💡 Regularly update router firmware to patch vulnerabilities</li>
+<li>💡 Disable WPS, UPnP, and remote management features</li></ul>
+  </div>
+
+  <div class="footer">
+    WiFi Privacy Scanner v2.0.0 · Privacy Tech AI Agency<br>
+    This scan detects known CSI-capable routers. Always use VPN + MAC randomization for enhanced privacy.
+  </div>
+</body>
+</html>

@@ -1,0 +1,213 @@
+{
+  "scan_date": "2026-03-15T18:05:21.709344",
+  "scanner_version": "2.0.0",
+  "platform": "Linux",
+  "networks_scanned": 6,
+  "threats_found": 5,
+  "threat_score": 90,
+  "threat_breakdown": {
+    "critical": 1,
+    "high": 2,
+    "medium": 2,
+    "low": 1
+  },
+  "networks": [
+    {
+      "network": {
+        "ssid": "xfinitywifi",
+        "bssid": "B0:8B:D0:12:34:56",
+        "signal_strength": 85,
+        "encryption": "WPA2"
+      },
+      "threats": [
+        {
+          "vendor": "Xfinity",
+          "models": [
+            "XB6",
+            "XB7",
+            "XB8",
+            "XB8-T",
+            "XFi Gateway"
+          ],
+          "detection_type": "Motion Sensing",
+          "capabilities": [
+            "Presence detection",
+            "Motion tracking",
+            "Room-level occupancy",
+            "Device fingerprinting"
+          ],
+          "mitigation": "Disable motion sensing in Xfinity app → More → WiFi → Advanced Security. Or replace with your own router in bridge mode.",
+          "match_reason": [
+            "MAC OUI match (B0:8B:D0)",
+            "SSID contains 'xfinity'",
+            "SSID contains 'xfi'"
+          ]
+        }
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 70,
+      "vendor_match": "Xfinity"
+    },
+    {
+      "network": {
+        "ssid": "HOME-WiFi",
+        "bssid": "00:24:A5:78:90:AB",
+        "signal_strength": 92,
+        "encryption": "WPA2"
+      },
+      "threats": [
+        {
+          "vendor": "Xfinity",
+          "models": [
+            "XB6",
+            "XB7",
+            "XB8",
+            "XB8-T",
+            "XFi Gateway"
+          ],
+          "detection_type": "Motion Sensing",
+          "capabilities": [
+            "Presence detection",
+            "Motion tracking",
+            "Room-level occupancy",
+            "Device fingerprinting"
+          ],
+          "mitigation": "Disable motion sensing in Xfinity app → More → WiFi → Advanced Security. Or replace with your own router in bridge mode.",
+          "match_reason": [
+            "MAC OUI match (00:24:A5)"
+          ]
+        }
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 70,
+      "vendor_match": "Xfinity"
+    },
+    {
+      "network": {
+        "ssid": "OriginWireless_Mesh",
+        "bssid": "00:1B:63:CD:EF:12",
+        "signal_strength": 70,
+        "encryption": "WPA3"
+      },
+      "threats": [
+        {
+          "vendor": "Origin AI",
+          "models": [
+            "Origin Wireless",
+            "Origin WiFi Sensing Platform"
+          ],
+          "detection_type": "Full CSI",
+          "capabilities": [
+            "Full CSI extraction",
+            "Vital signs monitoring",
+            "Breathing/heart rate detection",
+            "Fall detection",
+            "Gait analysis",
+            "Sleep quality tracking"
+          ],
+          "mitigation": "Avoid networks with Origin AI deployment; use VPN and limit WiFi exposure. Origin AI technology may be embedded in ISP routers.",
+          "match_reason": [
+            "MAC OUI match (00:1B:63)",
+            "SSID contains 'origin'",
+            "SSID contains 'originwireless'"
+          ]
+        }
+      ],
+      "risk_level": "CRITICAL",
+      "risk_score": 90,
+      "vendor_match": "Origin AI"
+    },
+    {
+      "network": {
+        "ssid": "NormalRouter",
+        "bssid": "AA:BB:CC:DD:EE:FF",
+        "signal_strength": 65,
+        "encryption": "WPA2"
+      },
+      "threats": [],
+      "risk_level": "LOW",
+      "risk_score": 0,
+      "vendor_match": null
+    },
+    {
+      "network": {
+        "ssid": "NETGEAR-5G",
+        "bssid": "34:98:B5:11:22:33",
+        "signal_strength": 40,
+        "encryption": "WPA2"
+      },
+      "threats": [
+        {
+          "vendor": "Netgear (Armor)",
+          "models": [
+            "Orbi series",
+            "Nighthawk series"
+          ],
+          "detection_type": "Device Fingerprinting + Analytics",
+          "capabilities": [
+            "Device fingerprinting (Armor)",
+            "Traffic analysis",
+            "Vulnerability scanning"
+          ],
+          "mitigation": "Disable Netgear Armor in Orbi/Nighthawk app. Analytics are opt-in via subscription.",
+          "match_reason": [
+            "MAC OUI match (34:98:B5)",
+            "SSID contains 'netgear'"
+          ]
+        }
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 50,
+      "vendor_match": "Netgear (Armor)"
+    },
+    {
+      "network": {
+        "ssid": "GoogleNest_1234",
+        "bssid": "F4:F5:D8:AA:BB:CC",
+        "signal_strength": 55,
+        "encryption": "WPA3"
+      },
+      "threats": [
+        {
+          "vendor": "Google Nest",
+          "models": [
+            "Nest WiFi Pro",
+            "Nest WiFi",
+            "Nest Hub Max"
+          ],
+          "detection_type": "Presence Sensing (Soli/Thread)",
+          "capabilities": [
+            "Presence detection",
+            "Sleep sensing (Nest Hub)",
+            "Gesture recognition (Soli)",
+            "Room-level occupancy"
+          ],
+          "mitigation": "Disable Soli features in Google Home app → Device Settings → Recognition & Sensing.",
+          "match_reason": [
+            "MAC OUI match (F4:F5:D8)",
+            "SSID contains 'nest'",
+            "SSID contains 'googlenest'"
+          ]
+        }
+      ],
+      "risk_level": "MEDIUM",
+      "risk_score": 50,
+      "vendor_match": "Google Nest"
+    }
+  ],
+  "recommendations": [
+    "🚨 CRITICAL: 1 network(s) with severe surveillance capabilities. Avoid these networks. Use VPN and disable WiFi when not needed.",
+    "⚠️  HIGH RISK: 2 network(s) with motion sensing. Disable motion/presence features or replace router.",
+    "ℹ️  MEDIUM RISK: 2 network(s) with potential surveillance. Review router docs and disable unnecessary sensing.",
+    "💡 Enable MAC address randomization on your devices",
+    "💡 Use VPN to encrypt traffic and limit exposure",
+    "💡 Regularly update router firmware to patch vulnerabilities",
+    "💡 Disable WPS, UPnP, and remote management features"
+  ],
+  "diff": {
+    "new_networks": [],
+    "gone_networks": [],
+    "threat_changes": [],
+    "previous_scan_date": "2026-03-15T18:01:58.136045"
+  }
+}

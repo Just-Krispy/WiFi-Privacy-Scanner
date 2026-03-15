@@ -1,0 +1,130 @@
+{
+  "scan_date": "2026-03-15T14:09:56.253364",
+  "networks_scanned": 4,
+  "threats_found": 3,
+  "threat_score": 90,
+  "threat_breakdown": {
+    "critical": 1,
+    "high": 2,
+    "medium": 0,
+    "low": 1
+  },
+  "networks": [
+    {
+      "network": {
+        "ssid": "xfinitywifi",
+        "bssid": "B0:8B:D0:12:34:56",
+        "signal_strength": 85,
+        "encryption": "WPA2"
+      },
+      "threats": [
+        {
+          "vendor": "Xfinity",
+          "models": [
+            "XB6",
+            "XB7",
+            "XB8"
+          ],
+          "detection_type": "Motion Sensing",
+          "capabilities": [
+            "Presence detection",
+            "Motion tracking",
+            "Room-level occupancy"
+          ],
+          "mitigation": "Disable motion sensing in Xfinity app or use non-Xfinity router",
+          "match_reason": [
+            "MAC OUI match (B0:8B:D0)",
+            "SSID contains 'xfinity'"
+          ]
+        }
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 70,
+      "vendor_match": "Xfinity"
+    },
+    {
+      "network": {
+        "ssid": "HOME-WiFi",
+        "bssid": "00:24:A5:78:90:AB",
+        "signal_strength": 92,
+        "encryption": "WPA2"
+      },
+      "threats": [
+        {
+          "vendor": "Xfinity",
+          "models": [
+            "XB6",
+            "XB7",
+            "XB8"
+          ],
+          "detection_type": "Motion Sensing",
+          "capabilities": [
+            "Presence detection",
+            "Motion tracking",
+            "Room-level occupancy"
+          ],
+          "mitigation": "Disable motion sensing in Xfinity app or use non-Xfinity router",
+          "match_reason": [
+            "MAC OUI match (00:24:A5)"
+          ]
+        }
+      ],
+      "risk_level": "HIGH",
+      "risk_score": 70,
+      "vendor_match": "Xfinity"
+    },
+    {
+      "network": {
+        "ssid": "OriginWireless_Mesh",
+        "bssid": "00:1B:63:CD:EF:12",
+        "signal_strength": 70,
+        "encryption": "WPA3"
+      },
+      "threats": [
+        {
+          "vendor": "Origin AI",
+          "models": [
+            "Origin Wireless"
+          ],
+          "detection_type": "Full CSI",
+          "capabilities": [
+            "Full CSI extraction",
+            "Vital signs monitoring",
+            "Breathing/heart rate detection",
+            "Fall detection",
+            "Gait analysis"
+          ],
+          "mitigation": "Avoid networks with Origin AI deployment; use VPN and limit WiFi exposure",
+          "match_reason": [
+            "MAC OUI match (00:1B:63)",
+            "SSID contains 'origin'",
+            "SSID contains 'originwireless'"
+          ]
+        }
+      ],
+      "risk_level": "CRITICAL",
+      "risk_score": 90,
+      "vendor_match": "Origin AI"
+    },
+    {
+      "network": {
+        "ssid": "NormalRouter",
+        "bssid": "AA:BB:CC:DD:EE:FF",
+        "signal_strength": 65,
+        "encryption": "WPA2"
+      },
+      "threats": [],
+      "risk_level": "LOW",
+      "risk_score": 0,
+      "vendor_match": null
+    }
+  ],
+  "recommendations": [
+    "\ud83d\udea8 CRITICAL: 1 network(s) with severe surveillance capabilities detected. Avoid connecting to these networks. Consider using VPN and disabling WiFi when not needed.",
+    "\u26a0\ufe0f  HIGH RISK: 2 network(s) with motion sensing detected. Check router settings to disable motion/presence features or consider replacing router.",
+    "\ud83d\udca1 Enable MAC address randomization on your devices",
+    "\ud83d\udca1 Use VPN to encrypt traffic and limit exposure",
+    "\ud83d\udca1 Regularly update router firmware to patch vulnerabilities",
+    "\ud83d\udca1 Disable WPS, UPnP, and remote management features"
+  ]
+}
