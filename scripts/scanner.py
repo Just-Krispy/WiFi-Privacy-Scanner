@@ -373,6 +373,7 @@ def main():
     parser.add_argument('--format', choices=['json', 'markdown', 'html', 'all'], default='json',
                         help='Output format (default: json)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('--remediate', action='store_true', help='Generate remediation/cleanup scripts')
     args = parser.parse_args()
 
     scanner = WiFiPrivacyScanner(db_path=args.db)
@@ -421,6 +422,15 @@ def main():
                 print(f"   + NEW: {n['ssid']} ({n['risk_level']})")
             for n in d['gone_networks']:
                 print(f"   - GONE: {n['ssid']}")
+
+    if args.remediate:
+        from remediate import generate_remediation_scripts
+        print(f"\n\U0001f6e0  Generating remediation scripts...")
+        scripts = generate_remediation_scripts(results, str(output_dir))
+        for s in scripts:
+            sev_icon = '\U0001f6a8' if s['severity'] == 'HIGH' else '\u26a0'
+            print(f"   {sev_icon} {s['filename']} — {s['title']}")
+        print(f"\n   {len(scripts)} scripts saved to: {output_dir}/remediation/")
 
 
 if __name__ == '__main__':
